@@ -29,7 +29,7 @@ def cmd_generate(args):
 
 
 def cmd_run(args):
-    run_dir = runner.run_suite(args.suite, args.target, args.baseline)
+    run_dir = runner.run_suite(args.suite, args.target, args.baseline, triage=not args.no_triage)
     data = json.loads((run_dir / "results.json").read_text())
     if data["status"] == "ENV_ERROR":
         print(f"🔌 Environment failed, no tests judged:\n{data['env_error']}")
@@ -39,6 +39,11 @@ def cmd_run(args):
                       for c in s["checks"] if not c["passed"]]
             detail = f"  → {failed[0]['field']}: expected {failed[0]['expected']}, got {failed[0]['actual']}" if failed else ""
             print(f"{ICONS[r['verdict']]} {r['verdict']:9} {r['test']['id']:6} {r['test']['title']}{detail}")
+            diag = r.get("triage", {}).get("diagnosis")
+            if diag:
+                loc = r["triage"]["location"]
+                where = f"{diag['file']}:{loc['line']}" if loc["verified"] else f"{diag['file']} (location unverified)"
+                print(f"   🤖 AI: {diag['summary']}\n      at {where} · suggested fix: {diag['suggested_fix'].strip() or '(remove the quoted line)'}")
         counts = Counter(r["verdict"] for r in data["results"])
         print("\n" + " · ".join(f"{v} {counts.get(v, 0)}" for v in ICONS))
     print(f"Report: {report.render(run_dir)}")
@@ -58,6 +63,7 @@ def main():
     r.add_argument("--suite", default=DEFAULT_SUITE)
     r.add_argument("--target", default=None, help="git ref to test (default: working tree)")
     r.add_argument("--baseline", default="shop-clean", help="known-good git ref")
+    r.add_argument("--no-triage", action="store_true", help="skip AI diagnosis of failures")
     r.set_defaults(func=cmd_run)
 
     args = parser.parse_args()

@@ -15,6 +15,7 @@ from pathlib import Path
 from .dsl import TestCase
 from .engine import run_test
 from .env import EnvError, shop_instance
+from .triage import diagnose
 
 ROOT = Path(__file__).resolve().parent.parent
 RUNS_DIR = ROOT / "runs"
@@ -35,7 +36,8 @@ def _run_all(tests, ref, run_dir, label):
         return {"ref": env["ref"], "commit": env["commit"]}, results
 
 
-def run_suite(suite_path: str, target_ref: str | None = None, baseline_ref: str = "shop-clean") -> Path:
+def run_suite(suite_path: str, target_ref: str | None = None, baseline_ref: str = "shop-clean",
+              triage: bool = True) -> Path:
     suite = json.loads(Path(suite_path).read_text())
     tests = [TestCase.model_validate(e["test"]) for e in suite["accepted"]]
     run_dir = RUNS_DIR / datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -56,6 +58,13 @@ def run_suite(suite_path: str, target_ref: str | None = None, baseline_ref: str 
             record["results"].append({
                 "test": test.model_dump(), "verdict": classify(b, t), "baseline": b, "target": t,
             })
+        if triage:
+            # Diagnose suspected bugs against the source that was actually tested.
+            spec = Path(suite["spec"]).read_text()
+            source_root = ROOT if target_ref is None else None
+            for r in record["results"]:
+                if r["verdict"] == "BUG" and source_root:
+                    r["triage"] = diagnose(r, spec, source_root)
 
     (run_dir / "results.json").write_text(json.dumps(record, indent=2, ensure_ascii=False))
     return run_dir
