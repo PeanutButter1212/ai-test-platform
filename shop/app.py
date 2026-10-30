@@ -206,18 +206,18 @@ def checkout(cart_id: int):
         if not view["items"]:
             error(400, "EMPTY_CART", "Cart is empty")
 
-        # Check every item first so a failed checkout never removes any stock.
+        # Reserve stock item by item so other shoppers see it immediately.
         for item in view["items"]:
             stock = conn.execute(
                 "SELECT stock FROM products WHERE id = ?", (item["product_id"],)
             ).fetchone()["stock"]
             if item["qty"] > stock:
                 error(409, "OUT_OF_STOCK", f"Only {stock} left of {item['name']}")
-        for item in view["items"]:
             conn.execute(
                 "UPDATE products SET stock = stock - ? WHERE id = ?",
                 (item["qty"], item["product_id"]),
             )
+            conn.commit()
 
         order_id = conn.execute(
             "INSERT INTO orders (cart_id, total) VALUES (?, ?)",
