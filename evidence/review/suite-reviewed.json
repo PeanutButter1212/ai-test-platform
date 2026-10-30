@@ -1,0 +1,1985 @@
+{
+  "spec": "specs/shop-requirements.md",
+  "model": "gemini-3.5-flash",
+  "accepted": [
+    {
+      "test": {
+        "id": "R1-01",
+        "rule": "R1",
+        "kind": "boundary",
+        "title": "Subtotal below $100.00 receives no spend discount",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 2,
+              "qty": 3,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "75.00",
+                "rule": "R1",
+                "why": "3 items of product 2 at $25.00 each sum to $75.00 subtotal"
+              },
+              {
+                "field": "tier_discount",
+                "op": "equals",
+                "value": "0.00",
+                "rule": "R1",
+                "why": "Orders below $100.00 receive no spend discount"
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "75.00",
+                "rule": "R1",
+                "why": "Total equals subtotal of $75.00 minus $0.00 tier discount"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 3,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R1-02",
+        "rule": "R1",
+        "kind": "boundary",
+        "title": "Subtotal exactly $100.00 qualifies for 10% spend discount",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 2,
+              "qty": 4,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "100.00",
+                "rule": "R1",
+                "why": "4 items of product 2 at $25.00 each sum to $100.00 subtotal"
+              },
+              {
+                "field": "tier_discount",
+                "op": "equals",
+                "value": "10.00",
+                "rule": "R1",
+                "why": "Orders with a subtotal of $100.00 or more get 10% off ($100.00 * 0.10 = $10.00)"
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "90.00",
+                "rule": "R1",
+                "why": "Total is subtotal $100.00 minus tier discount $10.00"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 3,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R1-03",
+        "rule": "R1",
+        "kind": "normal",
+        "title": "Subtotal exceeding $100.00 applies 10% discount rounded half-up",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 1,
+              "qty": 3,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "119.70",
+                "rule": "R1",
+                "why": "3 items of product 1 at $39.90 each sum to $119.70 subtotal"
+              },
+              {
+                "field": "tier_discount",
+                "op": "equals",
+                "value": "11.97",
+                "rule": "R1",
+                "why": "10% discount on $119.70 subtotal is $11.97"
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "107.73",
+                "rule": "R1",
+                "why": "Total is subtotal $119.70 minus tier discount $11.97"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 3,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R1-04",
+        "rule": "R1",
+        "kind": "normal",
+        "title": "Updating cart quantity across $100 boundary dynamically applies tier discount and persists state",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 4,
+              "qty": 2,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "90.00",
+                "rule": "R1",
+                "why": "2 items of product 4 at $45.00 each sum to $90.00"
+              },
+              {
+                "field": "tier_discount",
+                "op": "equals",
+                "value": "0.00",
+                "rule": "R1",
+                "why": "Subtotal $90.00 is below $100.00, so tier discount is $0.00"
+              }
+            ]
+          },
+          {
+            "method": "PATCH",
+            "path": "/api/carts/{cart}/items/4",
+            "body": {
+              "product_id": null,
+              "qty": 3,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "135.00",
+                "rule": "R1",
+                "why": "3 items of product 4 at $45.00 each sum to $135.00"
+              },
+              {
+                "field": "tier_discount",
+                "op": "equals",
+                "value": "13.50",
+                "rule": "R1",
+                "why": "Subtotal increased above $100.00 triggers 10% tier discount of $13.50"
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "121.50",
+                "rule": "R1",
+                "why": "Total updated to subtotal $135.00 minus tier discount $13.50"
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "135.00",
+                "rule": "R1",
+                "why": "Persisted cart subtotal remains $135.00"
+              },
+              {
+                "field": "tier_discount",
+                "op": "equals",
+                "value": "13.50",
+                "rule": "R1",
+                "why": "Persisted cart tier discount remains $13.50"
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "121.50",
+                "rule": "R1",
+                "why": "Persisted cart total remains $121.50"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "disagree",
+        "issues": [
+          "step 4 subtotal: test expects '135.00', reviewer predicts '121.50' (The subtotal remains the same as the total before checkout, which is 121.50.)",
+          "step 4 total: test expects '121.50', reviewer predicts '108.00' (The total is calculated as subtotal - tier_discount - coupon_discount. Since no coupon is applied, the total is 121.50 - 13.50 = 108.00.)"
+        ],
+        "checked": 8,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R2-01",
+        "rule": "R2",
+        "kind": "error",
+        "title": "Applying a second coupon fails with 409 COUPON_LIMIT and leaves cart unchanged",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 2,
+              "qty": 2,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "50.00",
+                "rule": "R6",
+                "why": "2 items of Glow Serum at 25.00 each equal a subtotal of 50.00"
+              }
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "SAVE10"
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "5.00",
+                "rule": "R5",
+                "why": "SAVE10 applies 10% discount on 50.00 subtotal which is 5.00"
+              }
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "LESS5"
+            },
+            "save_id_as": null,
+            "expect_status": 409,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "COUPON_LIMIT",
+                "rule": "R2",
+                "why": "Applying a second coupon to a cart that already has one must fail with 409 COUPON_LIMIT"
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "5.00",
+                "rule": "R2",
+                "why": "Cart remains unchanged after failed coupon addition attempt"
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "45.00",
+                "rule": "R6",
+                "why": "Total is subtotal 50.00 minus coupon discount 5.00"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "disagree",
+        "issues": [
+          "step 5 coupon_discount: test expects '5.00', reviewer predicts '0.00' (The 'LESS5' coupon was not applied, so the coupon discount remains $0.00.)",
+          "step 5 total: test expects '45.00', reviewer predicts '50.00' (The total is the subtotal minus the coupon discount, which is $50.00 - $0.00 = $50.00.)"
+        ],
+        "checked": 5,
+        "skipped": 1
+      }
+    },
+    {
+      "test": {
+        "id": "R2-02",
+        "rule": "R2",
+        "kind": "boundary",
+        "title": "Applying a second coupon with same code in lowercase fails with 409 COUPON_LIMIT",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 1,
+              "qty": 1,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "39.90",
+                "rule": "R6",
+                "why": "1 item of Wireless Earbuds at 39.90 equals subtotal of 39.90"
+              }
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "LESS5"
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "5.00",
+                "rule": "R5",
+                "why": "LESS5 gives a fixed 5.00 discount"
+              }
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "less5"
+            },
+            "save_id_as": null,
+            "expect_status": 409,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "COUPON_LIMIT",
+                "rule": "R2",
+                "why": "Coupons are case-insensitive so applying less5 when LESS5 exists counts as applying a second coupon"
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "5.00",
+                "rule": "R2",
+                "why": "Cart coupon discount remains unchanged at 5.00"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "disagree",
+        "issues": [
+          "step 2 subtotal: test expects '39.90', reviewer predicts '34.90' (The cart contains 1 item of Wireless Earbuds priced at $39.90 with a quantity of 1. Since the subtotal is $39.90, which is less than $100.00, no spend discount applies. The only discount applied is the 'LESS5' coupon, which reduces the subtotal by $5.00.)"
+        ],
+        "checked": 5,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R2-03",
+        "rule": "R2",
+        "kind": "normal",
+        "title": "Removing an applied coupon allows applying a new coupon",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 2,
+              "qty": 4,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "100.00",
+                "rule": "R6",
+                "why": "4 items of Glow Serum at 25.00 each equal subtotal of 100.00"
+              }
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "LESS5"
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "5.00",
+                "rule": "R5",
+                "why": "LESS5 applies 5.00 discount"
+              }
+            ]
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/carts/{cart}/coupons/LESS5",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "0.00",
+                "rule": "R6",
+                "why": "Removing coupon restores coupon discount to 0.00"
+              }
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "SAVE10"
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "10.00",
+                "rule": "R2",
+                "why": "After removing previous coupon cart has 0 coupons so SAVE10 can be applied successfully"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 4,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R3-01",
+        "rule": "R3",
+        "kind": "boundary",
+        "title": "Add item with maximum allowed quantity of 20",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 1,
+              "qty": 20,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "items.0.qty",
+                "op": "equals",
+                "value": "20",
+                "rule": "R3",
+                "why": "Quantity of 20 is within the allowed range of 1 to 20."
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "items.0.qty",
+                "op": "equals",
+                "value": "20",
+                "rule": "R3",
+                "why": "Fetching cart verifies quantity 20 was persisted."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 2,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R3-02",
+        "rule": "R3",
+        "kind": "error",
+        "title": "Add item with quantity 21 exceeding maximum limit",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 1,
+              "qty": 21,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 422,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "QTY_RANGE",
+                "rule": "R3",
+                "why": "Quantity 21 exceeds the maximum limit of 20 and must fail with QTY_RANGE."
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "items",
+                "op": "length",
+                "value": "0",
+                "rule": "R3",
+                "why": "Failed item add attempt must not modify cart items."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 2,
+        "skipped": 1
+      }
+    },
+    {
+      "test": {
+        "id": "R3-03",
+        "rule": "R3",
+        "kind": "error",
+        "title": "Add item with quantity 0 below minimum limit",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 2,
+              "qty": 0,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 422,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "QTY_RANGE",
+                "rule": "R3",
+                "why": "Quantity 0 is below the minimum limit of 1 and must fail with QTY_RANGE."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 1,
+        "skipped": 1
+      }
+    },
+    {
+      "test": {
+        "id": "R3-04",
+        "rule": "R3",
+        "kind": "error",
+        "title": "Add quantity to existing item causing cumulative quantity to exceed 20",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 1,
+              "qty": 15,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "items.0.qty",
+                "op": "equals",
+                "value": "15",
+                "rule": "R3",
+                "why": "Initial addition of quantity 15 succeeds within allowed range."
+              }
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 1,
+              "qty": 6,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 422,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "QTY_RANGE",
+                "rule": "R3",
+                "why": "Adding 6 to existing 15 brings total quantity to 21, exceeding limit of 20."
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "items.0.qty",
+                "op": "equals",
+                "value": "15",
+                "rule": "R3",
+                "why": "Failed addition must leave item quantity unchanged at 15."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "disagree",
+        "issues": [
+          "step 2 items.0.qty: test expects '15', reviewer predicts '21' (Initially, 15 units of product 1 are added to the cart. The second request adds 6 more units, so the total quantity for product 1 is 21.)",
+          "step 4 items.0.qty: test expects '15', reviewer predicts '21' (After the second request, the cart contains 21 units of product 1. The GET request to /api/carts/{cart} returns the current state of the cart, which includes the quantity of 21 for product 1.)"
+        ],
+        "checked": 4,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R4-01",
+        "rule": "R4",
+        "kind": "boundary",
+        "title": "Checkout succeeds when item quantity exactly equals available stock",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 5,
+              "qty": 3,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/checkout",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": []
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "[id=5].stock",
+                "op": "equals",
+                "value": "0",
+                "rule": "R4",
+                "why": "Purchasing 3 units of product 5 with 3 available stock leaves 0 stock remaining."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 0,
+        "skipped": 1
+      }
+    },
+    {
+      "test": {
+        "id": "R4-02",
+        "rule": "R4",
+        "kind": "boundary",
+        "title": "Checkout fails with 409 OUT_OF_STOCK when item quantity exceeds available stock",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 5,
+              "qty": 4,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/checkout",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 409,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "OUT_OF_STOCK",
+                "rule": "R4",
+                "why": "Quantity 4 exceeds available stock 3, so checkout fails with OUT_OF_STOCK."
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "[id=5].stock",
+                "op": "equals",
+                "value": "3",
+                "rule": "R4",
+                "why": "Failed checkout must not change the stock of any product."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "disagree",
+        "issues": [
+          "step 4 [id=5].stock: test expects '3', reviewer predicts '0' (After the checkout, the stock of product_id 5 (Phone Tripod) is reduced by 4. The initial stock is 3, so the remaining stock is 3 - 4 = -1. However, stock cannot be negative, so the stock is set to 0.)"
+        ],
+        "checked": 1,
+        "skipped": 2
+      }
+    },
+    {
+      "test": {
+        "id": "R4-03",
+        "rule": "R4",
+        "kind": "error",
+        "title": "Multi-item checkout failure preserves stock for all products in cart",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 3,
+              "qty": 2,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 5,
+              "qty": 4,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/checkout",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 409,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "OUT_OF_STOCK",
+                "rule": "R4",
+                "why": "Checkout fails because product 5 quantity exceeds available stock."
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "[id=3].stock",
+                "op": "equals",
+                "value": "5",
+                "rule": "R4",
+                "why": "Stock of in-stock item 3 must remain unchanged after failed checkout."
+              },
+              {
+                "field": "[id=5].stock",
+                "op": "equals",
+                "value": "3",
+                "rule": "R4",
+                "why": "Stock of out-of-stock item 5 must remain unchanged after failed checkout."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "disagree",
+        "issues": [
+          "step 4 HTTP status: test expects '409', reviewer predicts '{status: 200, products: [...]}' (The cart has a subtotal of $198.00 (2 * $59.00 + 4 * $19.50 = $118.00 + $80.00). Since the subtotal is above $100.00, a 10% discount is applied, reducing the subtotal to $178.20. The `LESS5` coupon is applied, further reducing the subtotal by $5.00 to $173.20. The total is $173.20. The checkout is successful, so the status code is 200.)",
+          "step 5 [id=3].stock: test expects '5', reviewer predicts '3' (After the checkout, the quantity of LED Ring Light (id=3) is reduced by 2. The initial stock was 5, and 2 were purchased, so the remaining stock is 3.)",
+          "step 5 [id=5].stock: test expects '3', reviewer predicts '0' (After the checkout, the quantity of Phone Tripod (id=5) is reduced by 4. The initial stock was 3, and 4 were purchased, so the stock is now 0.)"
+        ],
+        "checked": 3,
+        "skipped": 1
+      }
+    },
+    {
+      "test": {
+        "id": "R5-01",
+        "rule": "R5",
+        "kind": "normal",
+        "title": "Apply SAVE10 coupon to get 10% off subtotal",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 2,
+              "qty": 2,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "SAVE10"
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "5.00",
+                "rule": "R5",
+                "why": "SAVE10 coupon takes 10% off the $50.00 subtotal, resulting in $5.00 discount"
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "45.00",
+                "rule": "R6",
+                "why": "Total is subtotal ($50.00) minus coupon discount ($5.00)"
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "5.00",
+                "rule": "R5",
+                "why": "Cart maintains the SAVE10 coupon discount state on retrieval"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "disagree",
+        "issues": [
+          "step 4 coupon_discount: test expects '5.00', reviewer predicts '409 COUPON_LIMIT' (The coupon 'SAVE10' has already been applied, so applying it again would fail with a 409 COUPON_LIMIT error.)"
+        ],
+        "checked": 3,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R5-02",
+        "rule": "R5",
+        "kind": "normal",
+        "title": "Apply LESS5 coupon to get $5.00 off subtotal",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 5,
+              "qty": 1,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "LESS5"
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "5.00",
+                "rule": "R5",
+                "why": "LESS5 coupon takes $5.00 off the subtotal"
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "14.50",
+                "rule": "R6",
+                "why": "Total is subtotal ($19.50) minus coupon discount ($5.00)"
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "14.50",
+                "rule": "R5",
+                "why": "Cart maintains applied LESS5 coupon state on retrieval"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 3,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R5-03",
+        "rule": "R5",
+        "kind": "boundary",
+        "title": "Apply coupon code in lowercase (case-insensitivity)",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 2,
+              "qty": 2,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "save10"
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "5.00",
+                "rule": "R5",
+                "why": "Coupon codes are case-insensitive so lowercase save10 is accepted as SAVE10"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 1,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R5-04",
+        "rule": "R5",
+        "kind": "error",
+        "title": "Apply unknown coupon code fails with 404 COUPON_NOT_FOUND",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 2,
+              "qty": 1,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "INVALIDCODE"
+            },
+            "save_id_as": null,
+            "expect_status": 404,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "COUPON_NOT_FOUND",
+                "rule": "R5",
+                "why": "Unknown coupon codes fail with 404 COUPON_NOT_FOUND error"
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "0.00",
+                "rule": "R5",
+                "why": "Cart remains unchanged after attempting to apply an unknown coupon code"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 2,
+        "skipped": 1
+      }
+    },
+    {
+      "test": {
+        "id": "R6-01",
+        "rule": "R6",
+        "kind": "normal",
+        "title": "Verify total calculation with both spend discount and percentage coupon",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 1,
+              "qty": 3,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "SAVE10"
+            },
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "119.70",
+                "rule": "R6",
+                "why": "Subtotal of 3 items at 39.90 must be a string with 2 decimal places."
+              },
+              {
+                "field": "tier_discount",
+                "op": "equals",
+                "value": "11.97",
+                "rule": "R1",
+                "why": "10% spend discount applies to subtotal of 119.70."
+              },
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "11.97",
+                "rule": "R5",
+                "why": "SAVE10 coupon takes 10% off the subtotal of 119.70."
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "95.76",
+                "rule": "R6",
+                "why": "Total is subtotal (119.70) minus tier discount (11.97) and coupon discount (11.97)."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 4,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R6-02",
+        "rule": "R6",
+        "kind": "normal",
+        "title": "Verify total calculation with spend discount and fixed amount coupon",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 3,
+              "qty": 2,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "LESS5"
+            },
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "118.00",
+                "rule": "R6",
+                "why": "Subtotal of 2 items at 59.00 must be a string with 2 decimal places."
+              },
+              {
+                "field": "tier_discount",
+                "op": "equals",
+                "value": "11.80",
+                "rule": "R1",
+                "why": "10% spend discount applies to subtotal of 118.00."
+              },
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "5.00",
+                "rule": "R5",
+                "why": "LESS5 coupon takes exactly 5.00 off."
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "101.20",
+                "rule": "R6",
+                "why": "Total is 118.00 - 11.80 - 5.00."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 4,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R6-03",
+        "rule": "R6",
+        "kind": "boundary",
+        "title": "Verify total calculation at exactly $100.00 subtotal boundary",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 2,
+              "qty": 4,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "100.00",
+                "rule": "R6",
+                "why": "Subtotal of 4 items at 25.00 is exactly 100.00."
+              },
+              {
+                "field": "tier_discount",
+                "op": "equals",
+                "value": "10.00",
+                "rule": "R1",
+                "why": "Orders of exactly 100.00 get the 10% spend discount."
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "90.00",
+                "rule": "R6",
+                "why": "Total is 100.00 - 10.00 - 0.00."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 3,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R6-04",
+        "rule": "R6",
+        "kind": "normal",
+        "title": "Verify checkout total matches cart total calculation",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 5,
+              "qty": 1,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "SAVE10"
+            },
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "17.55",
+                "rule": "R6",
+                "why": "Cart total is 19.50 - 0.00 - 1.95 (10% of 19.50)."
+              }
+            ]
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/checkout",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "17.55",
+                "rule": "R6",
+                "why": "Checkout response must return the calculated total as a string with 2 decimal places."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "disagree",
+        "issues": [
+          "step 4 total: test expects '17.55', reviewer predicts '15.60' (The cart contains 1 item (Phone Tripod at $19.50) with a 10% discount (SAVE10 coupon). The subtotal is $19.50, the tier discount is $1.95, and the coupon discount is $1.95. The total is $15.60.)",
+          "step 5 total: test expects '17.55', reviewer predicts '15.60' (The checkout process reduces the stock of the Phone Tripod by 1, and the cart is closed. The total remains $15.60.)"
+        ],
+        "checked": 2,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R7-01",
+        "rule": "R7",
+        "kind": "normal",
+        "title": "Successful checkout reduces stock and applies discounts",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 3,
+              "qty": 2,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/checkout",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "106.20",
+                "rule": "R6",
+                "why": "Subtotal 118.00 minus 10% spend discount (11.80) equals 106.20."
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": [
+              {
+                "field": "[id=3].stock",
+                "op": "equals",
+                "value": "3",
+                "rule": "R7",
+                "why": "Stock of product 3 should decrease from 5 to 3 after buying 2 units."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 2,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R7-02",
+        "rule": "R7",
+        "kind": "error",
+        "title": "Checkout fails for an empty cart",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/checkout",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 400,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "EMPTY_CART",
+                "rule": "R7",
+                "why": "The system must reject checkout attempts on carts with no items."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "disagree",
+        "issues": [
+          "step 2 detail.code: test expects 'EMPTY_CART', reviewer predicts 'OUT_OF_STOCK' (The cart will contain two items: Wireless Earbuds and Glow Serum. The subtotal will be $64.90. Since the subtotal is less than $100.00, no spend discount applies. No coupon is applied, so the coupon discount is $0.00. The total will be $64.90. The checkout will fail because the LED Ring Light is out of stock, resulting in a `409 OUT_OF_STOCK` error.)"
+        ],
+        "checked": 1,
+        "skipped": 1
+      }
+    },
+    {
+      "test": {
+        "id": "R7-03",
+        "rule": "R7",
+        "kind": "boundary",
+        "title": "Checkout succeeds when buying exactly the remaining stock",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 5,
+              "qty": 3,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/checkout",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "58.50",
+                "rule": "R6",
+                "why": "Three items at 19.50 each with no spend discount equals 58.50."
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": [
+              {
+                "field": "[id=5].stock",
+                "op": "equals",
+                "value": "0",
+                "rule": "R7",
+                "why": "Stock should be zero after purchasing all 3 available units."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 2,
+        "skipped": 0
+      }
+    },
+    {
+      "test": {
+        "id": "R7-04",
+        "rule": "R7",
+        "kind": "error",
+        "title": "Checkout fails and preserves stock if quantity exceeds availability",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 3,
+              "qty": 6,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/checkout",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 409,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "OUT_OF_STOCK",
+                "rule": "R4",
+                "why": "Checkout must fail if quantity (6) exceeds available stock (5)."
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/products",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": null,
+            "checks": [
+              {
+                "field": "[id=3].stock",
+                "op": "equals",
+                "value": "5",
+                "rule": "R4",
+                "why": "A failed checkout must not change the stock of any product."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": [],
+      "review": {
+        "model": "qwen2.5:7b",
+        "verdict": "agree",
+        "issues": [],
+        "checked": 0,
+        "skipped": 3
+      }
+    }
+  ],
+  "rejected": [],
+  "generation_failures": []
+}
