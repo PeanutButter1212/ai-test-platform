@@ -33,6 +33,26 @@ uvicorn shop.app:app --reload
 Open http://localhost:8000 for the storefront. API docs are at http://localhost:8000/docs.
 The database resets to seed data on every start (`SHOP_DB` sets its path, default `shop.db`).
 
+## Run the testing platform
+
+Copy `.env.example` to `.env` and add a Gemini API key (free tier works).
+
+```bash
+python -m tester generate      # AI reads specs/shop-requirements.md and writes tests
+python -m tester run           # runs them on the known-good shop and the current shop
+```
+
+`run` prints a verdict per test and writes `runs/<timestamp>/report.html`:
+
+| Verdict | Meaning |
+|---|---|
+| `BUG` | passes on the known-good version (`shop-clean` tag), fails on the current shop |
+| `BAD_TEST` | fails on the known-good version, so the test itself is wrong |
+| `ENV_ERROR` | the shop could not be started or reached; nothing is judged |
+| `PASS` | passes on both |
+
+Set `LLM_REPLAY=1` to reuse cached AI responses without calling the API.
+
 ## Tests
 
 ```bash

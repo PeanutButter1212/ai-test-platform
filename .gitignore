@@ -5,6 +5,7 @@
 # Secrets
 .env
 .env.*
+!.env.example
 
 # Python
 __pycache__/
@@ -21,3 +22,7 @@ __pycache__/
 
 # Local databases
 *.db
+
+# Local LLM cache and run output (curated evidence is committed separately)
+llm_cache/
+runs/
