@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shop</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1 class="logo">Shop</h1>
+      <button class="cart-btn" data-testid="open-cart" aria-label="Open cart">
+        🛒 <span class="badge" data-testid="cart-count" hidden>0</span>
+      </button>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-filter="all" data-testid="tab-all">For You</button>
+      <button class="tab" data-filter="flash" data-testid="tab-flash">⚡ Flash Sale</button>
+    </nav>
+
+    <section class="promo" data-testid="promo">
+      <strong>Spend $100, get 10% off</strong>
+      <span>Automatically applied at checkout</span>
+    </section>
+
+    <div class="flash-head" data-testid="flash-head" hidden>
+      <span>⚡ Flash sale ends in</span>
+      <span class="countdown" data-testid="countdown">--:--:--</span>
+    </div>
+
+    <main class="grid" data-testid="product-grid"></main>
+  </div>
+
+  <!-- Cart bottom sheet -->
+  <div class="overlay" data-testid="cart-overlay" hidden>
+    <aside class="sheet" role="dialog" aria-label="Cart">
+      <div class="sheet-head">
+        <h2>Your cart</h2>
+        <button class="icon-btn" data-testid="close-cart" aria-label="Close cart">✕</button>
+      </div>
+
+      <div class="sheet-body" data-testid="cart-body">
+        <ul class="lines" data-testid="cart-lines"></ul>
+        <p class="empty" data-testid="cart-empty">Your cart is empty.</p>
+
+        <div class="tier" data-testid="tier-progress">
+          <div class="tier-text"></div>
+          <div class="bar"><div class="fill"></div></div>
+        </div>
+
+        <form class="coupon" data-testid="coupon-form">
+          <input name="code" placeholder="Coupon code" autocomplete="off" data-testid="coupon-input">
+          <button type="submit" data-testid="coupon-apply">Apply</button>
+        </form>
+        <div class="chips" data-testid="coupon-chips"></div>
+
+        <dl class="summary">
+          <div><dt>Subtotal</dt><dd data-testid="subtotal">$0.00</dd></div>
+          <div class="discount"><dt>Spend $100 discount</dt><dd data-testid="tier-discount">-$0.00</dd></div>
+          <div class="discount"><dt>Coupon</dt><dd data-testid="coupon-discount">-$0.00</dd></div>
+          <div class="total"><dt>Total</dt><dd data-testid="total">$0.00</dd></div>
+        </dl>
+        <p class="creator-note" data-testid="creator-note" hidden></p>
+      </div>
+
+      <button class="checkout" data-testid="checkout">Checkout</button>
+    </aside>
+  </div>
+
+  <!-- Order confirmation -->
+  <div class="overlay" data-testid="order-overlay" hidden>
+    <div class="confirm">
+      <div class="confirm-icon">🎉</div>
+      <h2>Order placed!</h2>
+      <p data-testid="order-summary"></p>
+      <button class="checkout" data-testid="continue-shopping">Keep shopping</button>
+    </div>
+  </div>
+
+  <div class="toast" data-testid="toast" role="status" hidden></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

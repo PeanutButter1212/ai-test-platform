@@ -4,13 +4,17 @@ Run:  uvicorn shop.app:app --reload
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import db, pricing
 
 MIN_QTY, MAX_QTY = 1, 20
+STATIC_DIR = Path(__file__).parent / "static"
 
 
 @asynccontextmanager
@@ -231,3 +235,12 @@ def checkout(cart_id: int):
     return {"order_id": order_id, "total": view["total"],
             "creator": view["creator"], "commission": view["commission"]}
 
+
+# ---------- storefront ----------
+
+@app.get("/")
+def storefront():
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
