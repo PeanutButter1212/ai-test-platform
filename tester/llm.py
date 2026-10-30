@@ -69,7 +69,16 @@ class LLM:
         elif self.replay:
             raise LLMError(f"Replay mode: no cached response for {purpose or key}")
         else:
-            text, used = self._call_with_fallback(prompt, system, schema, temperature, errors)
+            try:
+                text, used = self._call_with_fallback(prompt, system, schema, temperature, errors)
+            except LLMError as exc:
+                self._log({
+                    "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    "purpose": purpose, "models_tried": self.models, "source": "failed",
+                    "error": str(exc), "fallback_errors": errors, "cache_key": key,
+                    "latency_s": round(time.time() - started, 2), "prompt": prompt,
+                })
+                raise
             source = "live"
             CACHE_DIR.mkdir(exist_ok=True)
             cache_file.write_text(json.dumps(
