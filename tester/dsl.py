@@ -35,6 +35,8 @@ class Step(BaseModel):
 
 
 class TestCase(BaseModel):
+    __test__ = False  # not a pytest test class
+
     id: str = Field(description="Unique id like 'R1-02'")
     rule: str = Field(description="Main rule under test, e.g. 'R1'")
     kind: Literal["normal", "boundary", "error"]
@@ -43,4 +45,6 @@ class TestCase(BaseModel):
 
 
 class TestSuite(BaseModel):
+    __test__ = False
+
     tests: list[TestCase]

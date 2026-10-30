@@ -23,7 +23,8 @@ summary{cursor:pointer;font-weight:600} .tag{font-size:12px;padding:1px 8px;bord
 .tag.ENV_ERROR{background:#ebe9fe;color:#6941c6} .tag.PASS{background:#dcfae6;color:#16a34a}
 table{border-collapse:collapse;width:100%;margin:8px 0} td,th{border-bottom:1px solid #ebe8f0;padding:4px 6px;text-align:left;vertical-align:top}
 .fail{color:#b42318;font-weight:600} pre{background:#f6f5f9;padding:8px;border-radius:8px;overflow:auto;font-size:12px;margin:4px 0}
-h2{margin-top:28px}
+h2{margin-top:28px} .ai{background:#f4f3ff;border:1px solid #d9d6fe;border-radius:10px;padding:8px 12px;margin:10px 0}
+.ai p{margin:4px 0} .ok{color:#16a34a;font-size:12px} .fail{font-size:12px}
 """
 
 
@@ -40,6 +41,23 @@ def _checks_table(run: dict) -> str:
                 f"<td>{escape(c['why'] or '')}</td></tr>")
     head = "<tr><th>Step</th><th>Check</th><th>Expected</th><th>Actual</th><th>Rule</th><th>Why</th></tr>"
     return f"<table>{head}{''.join(rows)}</table>"
+
+
+def _triage(t: dict | None) -> str:
+    if not t:
+        return ""
+    if "error" in t:
+        return f"<div class='ai'><b>🤖 AI diagnosis failed:</b> {escape(t['error'][:300])}</div>"
+    d, loc = t["diagnosis"], t["location"]
+    where = (f"{escape(d['file'])}:{loc['line']} <span class='ok'>✓ location verified in source</span>"
+             if loc["verified"] else
+             f"{escape(d['file'])} <span class='fail'>✗ location not verified ({escape(loc['reason'])})</span>")
+    fix = escape(d["suggested_fix"].strip()) or "(remove the quoted line)"
+    return (f"<div class='ai'><b>🤖 AI suggestion</b> <small>({escape(d['confidence'])} confidence, "
+            f"blames the {escape(d['culprit'])}; advice only, needs developer review)</small>"
+            f"<p>{escape(d['summary'])}</p><p>Where: {where} in <code>{escape(d['function'])}</code></p>"
+            f"<p>Current code:</p><pre>{escape(d['quoted_code'].strip())}</pre>"
+            f"<p>Suggested fix:</p><pre>{fix}</pre><p>{escape(d['explanation'])}</p></div>")
 
 
 def _raw_steps(run: dict) -> str:
@@ -75,7 +93,7 @@ def render(run_dir: Path) -> Path:
                 parts.append(
                     f"<details {'open' if verdict == 'BUG' else ''}><summary><span class='tag {verdict}'>{verdict}</span>"
                     f"{escape(t['id'])} · {escape(t['title'])} <small>({escape(t['kind'])})</small></summary>"
-                    f"<p>Checks on the {where}:</p>{error}{_checks_table(shown)}"
+                    f"<p>Checks on the {where}:</p>{error}{_checks_table(shown)}{_triage(r.get('triage'))}"
                     f"<details><summary>Raw requests and responses</summary>{_raw_steps(shown)}</details></details>")
     html = (f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
             f"<title>Test report {escape(run_dir.name)}</title><style>{CSS}</style></head><body><main>{''.join(parts)}</main></body></html>")
