@@ -23,3 +23,18 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+## Run the shop
+
+```bash
+uvicorn shop.app:app --reload
+```
+
+Open http://localhost:8000 for the storefront. API docs are at http://localhost:8000/docs.
+The database resets to seed data on every start (`SHOP_DB` sets its path, default `shop.db`).
+
+## Tests
+
+```bash
+pytest
+```
