@@ -1,0 +1,8 @@
+{
+  "suite": "generated/v2/suite.json",
+  "started": "2026-10-30T23:07:07",
+  "tests": 26,
+  "status": "ENV_ERROR",
+  "results": [],
+  "env_error": "cannot check out 'no-such-tag': fatal: invalid reference: no-such-tag"
+}
