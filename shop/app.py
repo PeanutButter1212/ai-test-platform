@@ -180,7 +180,7 @@ def apply_coupon(cart_id: int, body: ApplyCoupon):
         if conn.execute("SELECT 1 FROM coupons WHERE code = ?", (code,)).fetchone() is None:
             error(404, "COUPON_NOT_FOUND", f"Coupon {code} does not exist")
         applied = conn.execute(
-            "SELECT COUNT(*) FROM cart_coupons WHERE cart_id = ?", (cart_id,)
+            "SELECT COUNT(*) FROM cart_coupons WHERE cart_id = ? AND code = ?", (cart_id, code)
         ).fetchone()[0]
         if applied >= 1:
             error(409, "COUPON_LIMIT", "Only one coupon can be used per order")
