@@ -24,9 +24,15 @@ class LLMError(RuntimeError):
     pass
 
 
+# Errors that mean "try another model" rather than "the request is wrong".
+RETRYABLE = ("429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "timed out")
+
+
 class LLM:
     def __init__(self, model: str | None = None, replay: bool | None = None):
         self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+        fallbacks = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3-flash-preview,gemini-3.1-flash-lite")
+        self.models = [self.model] + [m.strip() for m in fallbacks.split(",") if m.strip() and m.strip() != self.model]
         self.replay = replay if replay is not None else os.environ.get("LLM_REPLAY") == "1"
         self._client = None
 
@@ -56,23 +62,27 @@ class LLM:
         cache_file = CACHE_DIR / f"{key}.json"
 
         started = time.time()
+        errors = []
         if cache_file.exists():
-            text, source = json.loads(cache_file.read_text())["response"], "cache"
+            cached = json.loads(cache_file.read_text())
+            text, source, used = cached["response"], "cache", cached["model"]
         elif self.replay:
             raise LLMError(f"Replay mode: no cached response for {purpose or key}")
         else:
-            text, source = self._call_gemini(prompt, system, schema, temperature), "live"
+            text, used = self._call_with_fallback(prompt, system, schema, temperature, errors)
+            source = "live"
             CACHE_DIR.mkdir(exist_ok=True)
             cache_file.write_text(json.dumps(
-                {"model": self.model, "purpose": purpose, "prompt": prompt, "response": text},
+                {"model": used, "purpose": purpose, "prompt": prompt, "response": text},
                 indent=2, ensure_ascii=False,
             ))
 
         self._log({
             "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "purpose": purpose,
-            "model": self.model,
+            "model": used,
             "source": source,
+            "fallback_errors": errors,
             "cache_key": key,
             "latency_s": round(time.time() - started, 2),
             "system": system,
@@ -81,7 +91,17 @@ class LLM:
         })
         return text
 
-    def _call_gemini(self, prompt, system, schema, temperature) -> str:
+    def _call_with_fallback(self, prompt, system, schema, temperature, errors) -> tuple[str, str]:
+        for model in self.models:
+            try:
+                return self._call_gemini(model, prompt, system, schema, temperature), model
+            except LLMError as exc:
+                errors.append(f"{model}: {str(exc)[:200]}")
+                if not any(code in str(exc) for code in RETRYABLE):
+                    raise
+        raise LLMError("All models failed:\n" + "\n".join(errors))
+
+    def _call_gemini(self, model, prompt, system, schema, temperature) -> str:
         from google.genai import types
 
         config = types.GenerateContentConfig(
@@ -92,12 +112,12 @@ class LLM:
         )
         try:
             response = self._gemini().models.generate_content(
-                model=self.model, contents=prompt, config=config
+                model=model, contents=prompt, config=config
             )
         except Exception as exc:  # network, quota, bad model name
-            raise LLMError(f"{self.model} call failed: {exc}") from exc
+            raise LLMError(f"{model} call failed: {exc}") from exc
         if not response.text:
-            raise LLMError(f"{self.model} returned an empty response")
+            raise LLMError(f"{model} returned an empty response")
         return response.text
 
     @staticmethod
