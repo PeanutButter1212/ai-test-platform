@@ -15,20 +15,10 @@
       </button>
     </header>
 
-    <nav class="tabs" role="tablist">
-      <button class="tab active" data-filter="all" data-testid="tab-all">For You</button>
-      <button class="tab" data-filter="flash" data-testid="tab-flash">⚡ Flash Sale</button>
-    </nav>
-
     <section class="promo" data-testid="promo">
       <strong>Spend $100, get 10% off</strong>
       <span>Automatically applied at checkout</span>
     </section>
-
-    <div class="flash-head" data-testid="flash-head" hidden>
-      <span>⚡ Flash sale ends in</span>
-      <span class="countdown" data-testid="countdown">--:--:--</span>
-    </div>
 
     <main class="grid" data-testid="product-grid"></main>
   </div>
@@ -62,7 +52,6 @@
           <div class="discount"><dt>Coupon</dt><dd data-testid="coupon-discount">-$0.00</dd></div>
           <div class="total"><dt>Total</dt><dd data-testid="total">$0.00</dd></div>
         </dl>
-        <p class="creator-note" data-testid="creator-note" hidden></p>
       </div>
 
       <button class="checkout" data-testid="checkout">Checkout</button>

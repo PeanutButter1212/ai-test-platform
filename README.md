@@ -14,7 +14,7 @@ An AI-driven automated testing tool: AI reads plain-English requirements and wri
 
 ## System under test
 
-A small social-commerce shop (`shop/`): product feed, creator picks, flash sales, coupons, checkout and creator commission.
+A small online shop (`shop/`): product feed, cart, a spend-$100 discount, coupons and limited stock at checkout.
 
 ## Setup
 

@@ -6,7 +6,6 @@
   --card: #ffffff;
   --accent: #f2545b;
   --accent-soft: #fde8e9;
-  --flash: #f59e0b;
   --good: #16a34a;
   --radius: 14px;
 }
@@ -70,20 +69,6 @@ button { font: inherit; cursor: pointer; }
   font-weight: 700;
 }
 
-.tabs { display: flex; gap: 8px; padding: 12px 16px 0; }
-
-.tab {
-  border: 0;
-  background: none;
-  padding: 6px 2px;
-  margin-right: 12px;
-  color: var(--muted);
-  font-weight: 600;
-  border-bottom: 2px solid transparent;
-}
-
-.tab.active { color: var(--ink); border-color: var(--ink); }
-
 .promo {
   margin: 12px 16px;
   padding: 12px 14px;
@@ -95,21 +80,6 @@ button { font: inherit; cursor: pointer; }
 }
 
 .promo span { font-size: 13px; opacity: 0.9; }
-
-.flash-head {
-  display: flex;
-  justify-content: space-between;
-  margin: 0 16px 8px;
-  font-weight: 600;
-}
-
-.countdown {
-  font-variant-numeric: tabular-nums;
-  background: var(--ink);
-  color: #fff;
-  padding: 2px 8px;
-  border-radius: 6px;
-}
 
 /* ---------- product grid ---------- */
 
@@ -137,39 +107,11 @@ button { font: inherit; cursor: pointer; }
   background: linear-gradient(160deg, #efeaf7, #fbe9ec);
 }
 
-.thumb .pick {
-  position: absolute;
-  left: 8px;
-  bottom: 8px;
-  max-width: calc(100% - 16px);
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(22, 20, 31, 0.75);
-  color: #fff;
-  font-size: 11px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.thumb .flash-tag {
-  position: absolute;
-  left: 8px;
-  top: 8px;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--flash);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-}
-
 .info { padding: 10px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
 .name { font-size: 14px; font-weight: 600; }
 .price { font-size: 16px; font-weight: 700; color: var(--accent); }
 
-.stock { font-size: 12px; color: var(--muted); }
-.stock .bar { margin-top: 3px; }
+.stock { font-size: 12px; font-weight: 600; color: var(--accent); }
 
 .add {
   margin-top: auto;
@@ -184,7 +126,7 @@ button { font: inherit; cursor: pointer; }
 .add:disabled { background: var(--line); color: var(--muted); cursor: not-allowed; }
 
 .bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
-.fill { height: 100%; width: 0; background: var(--flash); transition: width 0.3s; }
+.fill { height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
 
 /* ---------- cart sheet ---------- */
 
@@ -251,7 +193,6 @@ button { font: inherit; cursor: pointer; }
 .empty { color: var(--muted); text-align: center; padding: 24px 0; }
 
 .tier { margin: 14px 0; font-size: 13px; }
-.tier .fill { background: var(--accent); }
 .tier.unlocked .tier-text { color: var(--good); font-weight: 600; }
 .tier.unlocked .fill { background: var(--good); }
 .tier-text { margin-bottom: 6px; }
@@ -308,14 +249,6 @@ button { font: inherit; cursor: pointer; }
 }
 
 .summary .total dt { color: var(--ink); }
-
-.creator-note {
-  font-size: 13px;
-  color: var(--muted);
-  background: var(--bg);
-  padding: 8px 12px;
-  border-radius: 10px;
-}
 
 .checkout {
   margin: 12px 16px 16px;

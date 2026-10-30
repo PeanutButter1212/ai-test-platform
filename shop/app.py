@@ -35,7 +35,6 @@ def error(status: int, code: str, message: str):
 class AddItem(BaseModel):
     product_id: int
     qty: int = 1
-    creator: str | None = None
 
 
 class SetQty(BaseModel):
@@ -63,7 +62,6 @@ def get_open_cart(conn, cart_id: int):
 
 
 def cart_view(conn, cart_id: int):
-    cart = conn.execute("SELECT * FROM carts WHERE id = ?", (cart_id,)).fetchone()
     items = conn.execute(
         """SELECT p.id, p.name, p.price, p.emoji, ci.qty
            FROM cart_items ci JOIN products p ON p.id = ci.product_id
@@ -79,11 +77,8 @@ def cart_view(conn, cart_id: int):
         [(i["price"], i["qty"]) for i in items],
         [(c["kind"], c["value"]) for c in coupons],
     )
-    if not cart["creator"]:
-        q["commission"] = pricing.money(0)
     return {
         "id": cart_id,
-        "creator": cart["creator"],
         "items": [
             {"product_id": i["id"], "name": i["name"], "emoji": i["emoji"],
              "price": i["price"], "qty": i["qty"]}
@@ -114,7 +109,7 @@ def reset():
 def list_products():
     with db.connect() as conn:
         rows = conn.execute("SELECT * FROM products ORDER BY id").fetchall()
-    return [dict(r) | {"flash_sale": bool(r["flash_sale"])} for r in rows]
+    return [dict(r) for r in rows]
 
 
 @app.post("/api/carts", status_code=201)
@@ -136,7 +131,7 @@ def get_cart(cart_id: int):
 def add_item(cart_id: int, body: AddItem):
     check_qty(body.qty)
     with db.connect() as conn:
-        cart = get_open_cart(conn, cart_id)
+        get_open_cart(conn, cart_id)
         if conn.execute("SELECT 1 FROM products WHERE id = ?", (body.product_id,)).fetchone() is None:
             error(404, "PRODUCT_NOT_FOUND", f"Product {body.product_id} does not exist")
         existing = conn.execute(
@@ -150,9 +145,6 @@ def add_item(cart_id: int, body: AddItem):
                ON CONFLICT (cart_id, product_id) DO UPDATE SET qty = excluded.qty""",
             (cart_id, body.product_id, new_qty),
         )
-        # The first creator a shopper buys through gets credit for the order.
-        if body.creator and not cart["creator"]:
-            conn.execute("UPDATE carts SET creator = ? WHERE id = ?", (body.creator, cart_id))
         return cart_view(conn, cart_id)
 
 
@@ -228,12 +220,11 @@ def checkout(cart_id: int):
             )
 
         order_id = conn.execute(
-            "INSERT INTO orders (cart_id, total, creator, commission) VALUES (?, ?, ?, ?)",
-            (cart_id, view["total"], view["creator"], view["commission"]),
+            "INSERT INTO orders (cart_id, total) VALUES (?, ?)",
+            (cart_id, view["total"]),
         ).lastrowid
         conn.execute("UPDATE carts SET checked_out = 1 WHERE id = ?", (cart_id,))
-    return {"order_id": order_id, "total": view["total"],
-            "creator": view["creator"], "commission": view["commission"]}
+    return {"order_id": order_id, "total": view["total"]}
 
 
 # ---------- storefront ----------

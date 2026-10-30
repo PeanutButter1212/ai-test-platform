@@ -1,11 +1,11 @@
 const TIER_THRESHOLD = 100;
+const LOW_STOCK = 5;
 
 const $ = (sel) => document.querySelector(sel);
 const money = (v) => `$${Number(v).toFixed(2)}`;
 
 let products = [];
 let cart = null;
-let filter = "all";
 
 // ---------- API ----------
 
@@ -35,25 +35,21 @@ async function run(action) {
 
 function renderProducts() {
   const grid = $('[data-testid="product-grid"]');
-  const visible = products.filter((p) => filter === "all" || p.flash_sale);
   grid.innerHTML = "";
-  for (const p of visible) {
+  for (const p of products) {
     const card = document.createElement("article");
     card.className = "card";
     card.dataset.testid = `product-${p.id}`;
     card.innerHTML = `
       <div class="thumb">
-        ${p.flash_sale ? '<span class="flash-tag">⚡ FLASH</span>' : ""}
         <span>${p.emoji}</span>
-        ${p.creator ? `<span class="pick">@${p.creator}'s pick</span>` : ""}
       </div>
       <div class="info">
         <div class="name">${p.name}</div>
         <div class="price">${money(p.price)}</div>
-        ${p.flash_sale ? `
+        ${p.stock <= LOW_STOCK ? `
           <div class="stock" data-testid="stock-${p.id}">
             ${p.stock > 0 ? `Only ${p.stock} left` : "Sold out"}
-            <div class="bar"><div class="fill" style="width:${Math.min(100, p.stock * 10)}%"></div></div>
           </div>` : ""}
         <button class="add" data-testid="add-${p.id}" ${p.stock === 0 ? "disabled" : ""}>
           ${p.stock === 0 ? "Sold out" : "Add to cart"}
@@ -64,7 +60,6 @@ function renderProducts() {
         cart = await api("POST", `/api/carts/${cart.id}/items`, {
           product_id: p.id,
           qty: 1,
-          creator: p.creator,
         });
         renderCart();
         toast(`Added ${p.name}`);
@@ -72,7 +67,6 @@ function renderProducts() {
     );
     grid.appendChild(card);
   }
-  $('[data-testid="flash-head"]').hidden = filter !== "flash";
 }
 
 async function loadProducts() {
@@ -139,12 +133,6 @@ function renderCart() {
   $('[data-testid="coupon-discount"]').textContent = `-${money(cart.coupon_discount)}`;
   $('[data-testid="total"]').textContent = money(cart.total);
 
-  const note = $('[data-testid="creator-note"]');
-  note.hidden = !cart.creator;
-  if (cart.creator) {
-    note.textContent = `💜 Supporting @${cart.creator}, who earns ${money(cart.commission)} from this order`;
-  }
-
   $('[data-testid="checkout"]').disabled = cart.items.length === 0;
 }
 
@@ -178,29 +166,6 @@ function setOverlay(testid, open) {
   $(`[data-testid="${testid}"]`).hidden = !open;
 }
 
-function startCountdown() {
-  const el = $('[data-testid="countdown"]');
-  const tick = () => {
-    const now = new Date();
-    const end = new Date(now);
-    end.setHours(24, 0, 0, 0);
-    const s = Math.floor((end - now) / 1000);
-    const pad = (n) => String(n).padStart(2, "0");
-    el.textContent = `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
-  };
-  tick();
-  setInterval(tick, 1000);
-}
-
-document.querySelectorAll(".tab").forEach((tab) =>
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
-    tab.classList.add("active");
-    filter = tab.dataset.filter;
-    renderProducts();
-  }),
-);
-
 $('[data-testid="open-cart"]').addEventListener("click", () => setOverlay("cart-overlay", true));
 $('[data-testid="close-cart"]').addEventListener("click", () => setOverlay("cart-overlay", false));
 $('[data-testid="cart-overlay"]').addEventListener("click", (e) => {
@@ -222,11 +187,8 @@ $('[data-testid="coupon-form"]').addEventListener("submit", (e) => {
 $('[data-testid="checkout"]').addEventListener("click", () =>
   run(async () => {
     const order = await api("POST", `/api/carts/${cart.id}/checkout`);
-    const creatorLine = order.creator
-      ? ` @${order.creator} earned ${money(order.commission)}.`
-      : "";
     $('[data-testid="order-summary"]').textContent =
-      `Order #${order.order_id} · Paid ${money(order.total)}.${creatorLine}`;
+      `Order #${order.order_id} · Paid ${money(order.total)}`;
     setOverlay("cart-overlay", false);
     setOverlay("order-overlay", true);
     await Promise.all([newCart(), loadProducts()]);
@@ -238,6 +200,5 @@ $('[data-testid="continue-shopping"]').addEventListener("click", () =>
 );
 
 run(async () => {
-  startCountdown();
   await Promise.all([loadProducts(), newCart()]);
 });

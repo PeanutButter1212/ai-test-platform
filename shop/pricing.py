@@ -2,14 +2,12 @@
 
 R1  Orders with a subtotal of $100.00 or more get 10% off.
 R2  Only one coupon can be used per order (enforced in the API).
-R5  The referring creator earns 5% of the amount actually paid.
 """
 
 from decimal import ROUND_HALF_UP, Decimal
 
 TIER_THRESHOLD = Decimal("100.00")
 TIER_RATE = Decimal("0.10")
-COMMISSION_RATE = Decimal("0.05")
 CENT = Decimal("0.01")
 
 
@@ -39,10 +37,6 @@ def coupon_discount(sub: Decimal, coupons) -> Decimal:
     return money(total)
 
 
-def commission(paid: Decimal) -> Decimal:
-    return money(paid * COMMISSION_RATE)
-
-
 def quote(lines, coupons):
     sub = subtotal(lines)
     tier = tier_discount(sub)
@@ -53,5 +47,4 @@ def quote(lines, coupons):
         "tier_discount": tier,
         "coupon_discount": coupon,
         "total": money(total),
-        "commission": commission(total),
     }
