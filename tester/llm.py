@@ -2,6 +2,7 @@
 
 Every call is appended to a JSONL log (raw prompt + response) and cached by
 content hash, so runs can be audited and replayed offline with LLM_REPLAY=1.
+Two providers: Gemini (cloud, free tier) and Ollama (local, free, offline).
 """
 
 import hashlib
@@ -28,11 +29,20 @@ class LLMError(RuntimeError):
 RETRYABLE = ("429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "timed out")
 
 
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+
+
 class LLM:
-    def __init__(self, model: str | None = None, replay: bool | None = None):
-        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
-        fallbacks = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3-flash-preview,gemini-3.1-flash-lite")
-        self.models = [self.model] + [m.strip() for m in fallbacks.split(",") if m.strip() and m.strip() != self.model]
+    def __init__(self, model: str | None = None, replay: bool | None = None, provider: str = "gemini"):
+        self.provider = provider
+        if provider == "ollama":
+            self.model = model or os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
+            self.models = [self.model]  # one local model, nothing to fall back to
+        else:
+            self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+            fallbacks = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3-flash-preview,gemini-3.1-flash-lite")
+            self.models = [self.model] + [m.strip() for m in fallbacks.split(",")
+                                          if m.strip() and m.strip() != self.model]
         self.replay = replay if replay is not None else os.environ.get("LLM_REPLAY") == "1"
         self._client = None
 
@@ -101,9 +111,10 @@ class LLM:
         return text
 
     def _call_with_fallback(self, prompt, system, schema, temperature, errors) -> tuple[str, str]:
+        call = self._call_ollama if self.provider == "ollama" else self._call_gemini
         for model in self.models:
             try:
-                return self._call_gemini(model, prompt, system, schema, temperature), model
+                return call(model, prompt, system, schema, temperature), model
             except LLMError as exc:
                 errors.append(f"{model}: {str(exc)[:200]}")
                 if not any(code in str(exc) for code in RETRYABLE):
@@ -128,6 +139,30 @@ class LLM:
         if not response.text:
             raise LLMError(f"{model} returned an empty response")
         return response.text
+
+    def _call_ollama(self, model, prompt, system, schema, temperature) -> str:
+        import httpx
+
+        messages = ([{"role": "system", "content": system}] if system else []) + \
+                   [{"role": "user", "content": prompt}]
+        payload = {
+            "model": model, "messages": messages, "stream": False,
+            # The default context window is too small for the spec plus a test.
+            "options": {"temperature": temperature, "num_ctx": 8192},
+        }
+        if schema:
+            payload["format"] = schema.model_json_schema()
+        try:
+            response = httpx.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=300)
+            response.raise_for_status()
+        except httpx.ConnectError as exc:
+            raise LLMError(f"{model} call failed: Ollama is not running at {OLLAMA_URL} (open the Ollama app)") from exc
+        except httpx.HTTPError as exc:
+            raise LLMError(f"{model} call failed: {exc}") from exc
+        text = response.json().get("message", {}).get("content", "")
+        if not text:
+            raise LLMError(f"{model} returned an empty response")
+        return text
 
     @staticmethod
     def _log(entry: dict):
