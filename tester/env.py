@@ -40,7 +40,11 @@ def shop_instance(ref: str | None = None, startup_timeout: float = 15):
     try:
         if ref:
             worktree = tmp / "src"
-            _git("worktree", "add", "--detach", str(worktree), ref)
+            try:
+                _git("worktree", "add", "--detach", str(worktree), ref)
+            except subprocess.CalledProcessError as exc:
+                worktree = None
+                raise EnvError(f"cannot check out {ref!r}: {exc.stderr.strip()}") from exc
             workdir = worktree
         commit = _git("-C", str(workdir), "rev-parse", "--short", "HEAD")
         if ref is None and _git("status", "--porcelain", "--", "shop"):
