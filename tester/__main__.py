@@ -1,6 +1,7 @@
 """Command line entry point.
 
     python -m tester generate [--spec PATH] [--rule R1 ...]
+    python -m tester review [--suite PATH] [--model NAME]
     python -m tester run [--suite PATH] [--target REF] [--baseline REF]
 """
 
@@ -9,7 +10,8 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from . import generator, report, runner
+from . import generator, report, review, runner
+from .llm import LLM
 
 DEFAULT_SPEC = "specs/shop-requirements.md"
 DEFAULT_SUITE = "generated/v2/suite.json"
@@ -26,6 +28,26 @@ def cmd_generate(args):
     for f in suite["generation_failures"]:
         print(f"  ! {f['rule']}: generation failed: {f['error'][:120]}")
     print(f"Saved {path}")
+
+
+def cmd_review(args):
+    def show(entry):
+        test, rv = entry["test"], entry["review"]
+        if "error" in rv:
+            print(f"❔ ERROR     {test['id']:6} {test['title']}\n   {rv['error'][:160]}")
+        elif rv["verdict"] == "agree":
+            print(f"👍 agree     {test['id']:6} {test['title']}")
+        else:
+            print(f"🚩 disagree  {test['id']:6} {test['title']}")
+            for issue in rv["issues"]:
+                print(f"   - {issue}")
+
+    llm = LLM(model=args.model, provider="ollama")
+    print(f"Reviewing {args.suite} with {llm.model} (local)...")
+    suite = review.review_suite(args.suite, llm, on_result=show)
+    counts = Counter(e["review"].get("verdict", "error") for e in suite["accepted"])
+    print(f"\nagree {counts['agree']} · disagree {counts['disagree']} · error {counts['error']}")
+    print(f"Saved reviews into {args.suite}")
 
 
 def cmd_run(args):
@@ -58,6 +80,11 @@ def main():
     g.add_argument("--rule", action="append", help="only this rule (repeatable)")
     g.add_argument("--out", default=DEFAULT_SUITE)
     g.set_defaults(func=cmd_generate)
+
+    v = sub.add_parser("review", help="second opinion on each test from a local Ollama model")
+    v.add_argument("--suite", default=DEFAULT_SUITE)
+    v.add_argument("--model", default=None, help="Ollama model (default: OLLAMA_MODEL or qwen2.5:7b)")
+    v.set_defaults(func=cmd_review)
 
     r = sub.add_parser("run", help="run the suite on the target and the known-good baseline")
     r.add_argument("--suite", default=DEFAULT_SUITE)
