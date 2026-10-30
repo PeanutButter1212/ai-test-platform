@@ -21,7 +21,7 @@ def subtotal(lines) -> Decimal:
 
 
 def tier_discount(sub: Decimal) -> Decimal:
-    if sub >= TIER_THRESHOLD:
+    if sub > TIER_THRESHOLD:
         return money(sub * TIER_RATE)
     return money(0)
 
