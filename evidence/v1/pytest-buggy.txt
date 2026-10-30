@@ -1,0 +1,160 @@
+...F.F..............FFFF...F..                                           [100%]
+=================================== FAILURES ===================================
+__________________ test_r1_spend_discount_exact_100_subtotal ___________________
+
+client = <httpx.Client object at 0x103489340>
+
+    def test_r1_spend_discount_exact_100_subtotal(client):
+        """R1: Subtotal exact $100.00 receives 10% spend discount ($10.00)."""
+        cart_id = create_cart(client)
+        # Product 2 ($25.00) x 4 = $100.00
+        res = client.post(f"/api/carts/{cart_id}/items", json={"product_id": 2, "qty": 4})
+    
+        assert res.status_code in (200, 201)
+        cart = res.json()
+        assert cart["subtotal"] == "100.00"
+>       assert cart["tier_discount"] == "10.00"
+E       AssertionError: assert '0.00' == '10.00'
+E         
+E         - 10.00
+E         ? -
+E         + 0.00
+
+generated/v1/test_generated.py:73: AssertionError
+______________________ test_r2_one_coupon_per_order_limit ______________________
+
+client = <httpx.Client object at 0x1034b9850>
+
+    def test_r2_one_coupon_per_order_limit(client):
+        """R2: Applying a second coupon fails with 409 COUPON_LIMIT and leaves cart unchanged."""
+        cart_id = create_cart(client)
+        client.post(f"/api/carts/{cart_id}/items", json={"product_id": 1, "qty": 1})
+    
+        # Apply first coupon
+        res1 = client.post(f"/api/carts/{cart_id}/coupons", json={"code": "SAVE10"})
+        assert res1.status_code == 200
+        cart_before = res1.json()
+        assert cart_before["coupons"] == ["SAVE10"]
+    
+        # Apply second coupon
+        res2 = client.post(f"/api/carts/{cart_id}/coupons", json={"code": "LESS5"})
+>       assert res2.status_code == 409
+E       assert 200 == 409
+E        +  where 200 = <Response [200 OK]>.status_code
+
+generated/v1/test_generated.py:105: AssertionError
+___________________ test_r5_coupons_case_insensitive[save10] ___________________
+
+client = <httpx.Client object at 0x10351f6b0>, code = 'save10'
+
+    @pytest.mark.parametrize("code", ["save10", "Save10", "less5", "LeSs5"])
+    def test_r5_coupons_case_insensitive(client, code):
+        """R5: Coupon codes are case-insensitive."""
+        cart_id = create_cart(client)
+        client.post(f"/api/carts/{cart_id}/items", json={"product_id": 2, "qty": 2})
+    
+        res = client.post(f"/api/carts/{cart_id}/coupons", json={"code": code})
+        assert res.status_code == 200
+        cart = res.json()
+>       assert cart["coupons"] == [code]  # or normalized code
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert ['SAVE10'] == ['save10']
+E         
+E         At index 0 diff: 'SAVE10' != 'save10'
+E         Use -v to get more diff
+
+generated/v1/test_generated.py:223: AssertionError
+___________________ test_r5_coupons_case_insensitive[Save10] ___________________
+
+client = <httpx.Client object at 0x10348a4b0>, code = 'Save10'
+
+    @pytest.mark.parametrize("code", ["save10", "Save10", "less5", "LeSs5"])
+    def test_r5_coupons_case_insensitive(client, code):
+        """R5: Coupon codes are case-insensitive."""
+        cart_id = create_cart(client)
+        client.post(f"/api/carts/{cart_id}/items", json={"product_id": 2, "qty": 2})
+    
+        res = client.post(f"/api/carts/{cart_id}/coupons", json={"code": code})
+        assert res.status_code == 200
+        cart = res.json()
+>       assert cart["coupons"] == [code]  # or normalized code
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert ['SAVE10'] == ['Save10']
+E         
+E         At index 0 diff: 'SAVE10' != 'Save10'
+E         Use -v to get more diff
+
+generated/v1/test_generated.py:223: AssertionError
+___________________ test_r5_coupons_case_insensitive[less5] ____________________
+
+client = <httpx.Client object at 0x10348b980>, code = 'less5'
+
+    @pytest.mark.parametrize("code", ["save10", "Save10", "less5", "LeSs5"])
+    def test_r5_coupons_case_insensitive(client, code):
+        """R5: Coupon codes are case-insensitive."""
+        cart_id = create_cart(client)
+        client.post(f"/api/carts/{cart_id}/items", json={"product_id": 2, "qty": 2})
+    
+        res = client.post(f"/api/carts/{cart_id}/coupons", json={"code": code})
+        assert res.status_code == 200
+        cart = res.json()
+>       assert cart["coupons"] == [code]  # or normalized code
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert ['LESS5'] == ['less5']
+E         
+E         At index 0 diff: 'LESS5' != 'less5'
+E         Use -v to get more diff
+
+generated/v1/test_generated.py:223: AssertionError
+___________________ test_r5_coupons_case_insensitive[LeSs5] ____________________
+
+client = <httpx.Client object at 0x1034b8b90>, code = 'LeSs5'
+
+    @pytest.mark.parametrize("code", ["save10", "Save10", "less5", "LeSs5"])
+    def test_r5_coupons_case_insensitive(client, code):
+        """R5: Coupon codes are case-insensitive."""
+        cart_id = create_cart(client)
+        client.post(f"/api/carts/{cart_id}/items", json={"product_id": 2, "qty": 2})
+    
+        res = client.post(f"/api/carts/{cart_id}/coupons", json={"code": code})
+        assert res.status_code == 200
+        cart = res.json()
+>       assert cart["coupons"] == [code]  # or normalized code
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert ['LESS5'] == ['LeSs5']
+E         
+E         At index 0 diff: 'LESS5' != 'LeSs5'
+E         Use -v to get more diff
+
+generated/v1/test_generated.py:223: AssertionError
+____________________ test_r7_checkout_success_reduces_stock ____________________
+
+client = <httpx.Client object at 0x103577da0>
+
+    def test_r7_checkout_success_reduces_stock(client):
+        """R7: Successful checkout returns order total, reduces product stock, and closes cart."""
+        cart_id = create_cart(client)
+        # Buy 2 of Product 3 (LED Ring Light, initial stock 5)
+        client.post(f"/api/carts/{cart_id}/items", json={"product_id": 3, "qty": 2})
+    
+        checkout_res = client.post(f"/api/carts/{cart_id}/checkout")
+        assert checkout_res.status_code in (200, 201)
+        data = checkout_res.json()
+        assert "order_id" in data
+>       assert data["total"] == "118.00"  # 59.00 * 2 = 118.00 (tier discount 10% = 11.80 -> total 106.20)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: assert '106.20' == '118.00'
+E         
+E         - 118.00
+E         + 106.20
+
+generated/v1/test_generated.py:287: AssertionError
+=========================== short test summary info ============================
+FAILED generated/v1/test_generated.py::test_r1_spend_discount_exact_100_subtotal
+FAILED generated/v1/test_generated.py::test_r2_one_coupon_per_order_limit - a...
+FAILED generated/v1/test_generated.py::test_r5_coupons_case_insensitive[save10]
+FAILED generated/v1/test_generated.py::test_r5_coupons_case_insensitive[Save10]
+FAILED generated/v1/test_generated.py::test_r5_coupons_case_insensitive[less5]
+FAILED generated/v1/test_generated.py::test_r5_coupons_case_insensitive[LeSs5]
+FAILED generated/v1/test_generated.py::test_r7_checkout_success_reduces_stock
+7 failed, 23 passed in 0.65s
