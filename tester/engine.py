@@ -10,10 +10,6 @@ from .dsl import Check, TestCase
 MISSING = object()
 
 
-class EnvError(RuntimeError):
-    """The environment, not the test, failed (server down, timeout)."""
-
-
 def resolve(data, path: str):
     """Follow a path like 'detail.code', 'items.0.qty' or '[id=5].stock' into JSON data."""
     for part in re.findall(r"\[[^\]]+\]|[^.\[\]]+", path):
