@@ -5,6 +5,7 @@ from pathlib import Path
 from tester.dsl import Check, TestCase
 from tester.engine import MISSING, evaluate, resolve
 from tester.lint import lint
+from tester.requirements import EXAMPLE_SPEC, compose, example_rules
 from tester.review import _blind_steps, _same, _usable
 from tester.runner import classify
 from tester.triage import Diagnosis, locate
@@ -90,3 +91,8 @@ def test_review_comparison():
     assert _same("400 EMPTY_CART", "EMPTY_CART") and not _same("OUT_OF_STOCK", "EMPTY_CART")
     assert not _same("9.00", "10.00")
     assert not _usable("", "422") and not _usable("COUPON_LIMIT", "5.00") and _usable("5.00", "5.00")
+
+
+def test_example_rules_rebuild_the_example_spec():
+    # The UI composes specs from rules; unchanged rules must reproduce the file exactly (and hit the LLM cache).
+    assert compose(example_rules()) == EXAMPLE_SPEC.read_text()
