@@ -30,6 +30,17 @@ The 26 real tests are known to be correct, because they all pass on the clean sh
 
   A 7B model loses track of state across several steps.
 
+## Bigger model?
+
+Same v4 reviewer, same checks, run with `qwen2.5:14b` (9 GB) on an M3 with 16 GB RAM:
+
+| Model | Broken tests caught | False alarms on 26 real tests | Time for 26 tests |
+|---|---|---|---|
+| qwen2.5:7b | 3 / 3 | **9** | **~1 min** |
+| qwen2.5:14b | 3 / 3 | 11 | ~27 min (about 57 s per test) |
+
+The bigger model was not more accurate here. It misread R1 ("$119.70 gets no spend discount") and often answered with a sentence instead of a bare value. It was also about 25× slower, because a 9 GB model nearly fills 16 GB of RAM. **Decision: keep 7B.** Raw outputs are in `evidence/review/qwen2.5-14b/`.
+
 ## How it is used
 
 - The review is a **filter for human attention**, not a judge. With 9 of 26 flagged, a person still has to look at about a third of the tests. They see the reviewer's reasoning next to each flag, so most false alarms are quick to dismiss.
@@ -37,7 +48,6 @@ The 26 real tests are known to be correct, because they all pass on the clean sh
 
 ## Limitations and next options
 
-- **Bigger local model** (e.g. `qwen2.5:14b`, about 9 GB) will likely reason better but runs slower on 16 GB RAM. Not tried yet.
 - **Ask twice and only flag when both runs disagree with the test** (self-consistency). This doubles run time.
 - The 3 broken tests are a small check, not a benchmark.
 
