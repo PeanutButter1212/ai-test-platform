@@ -26,7 +26,7 @@ class LLMError(RuntimeError):
 
 
 # Errors that mean "try another model" rather than "the request is wrong".
-RETRYABLE = ("429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "timed out")
+RETRYABLE = ("429", "503", "504", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "DEADLINE_EXCEEDED", "timed out")
 
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
