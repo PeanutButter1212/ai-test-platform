@@ -1,0 +1,6 @@
+WRONG R1-02 $100 no discount: disagree
+  step 2 tier_discount: test expects '0.00', reviewer predicts '10.00' (According to R1, orders with a subtotal of $100.00 or more receive a 10% discount. 10% of 100.00 is 10.00.)
+WRONG R5-02 LESS5 $10 off: disagree
+  step 3 coupon_discount: test expects '10.00', reviewer predicts '5.00' (Coupon LESS5 provides a $5.00 discount. Subtotal is $19.50. Coupon discount is 5.00.)
+WRONG R3-02 error code: disagree
+  step 2 detail.code: test expects 'OUT_OF_STOCK', reviewer predicts 'QTY_RANGE' (Rule R3 specifies that if the quantity is outside the 1-20 range, the API must return the error code 'QTY_RANGE'.)
