@@ -147,10 +147,11 @@ if state.rules:
 
 # ---------------------------------------------------------------- 3. review + approve
 if "suite" in state and state.suite["accepted"]:
-    st.header("3 · AI review and your approval")
+    st.header("3 · AI review")
     st.caption("A second model predicts every expected value without seeing the test's answer. "
-               "Mismatches are flagged. You decide which tests to keep.")
+               "Mismatches are flagged and left out, unless you choose to approve tests yourself.")
     suite = state.suite
+    manual = st.toggle("Let me approve tests myself", value=False, on_change=reset_from, args=("approved",))
     if st.button("Run AI review"):
         llm = LLM(model=review.DEFAULT_GEMINI_MODEL)
         spec = Path(suite["spec"]).read_text()
@@ -162,35 +163,43 @@ if "suite" in state and state.suite["accepted"]:
         generator.save(suite, work_dir() / "suite.json")
         reset_from("approved")
 
+    def approve(keep: set[str], by: str):
+        approved = {**suite, "accepted": [e for e in suite["accepted"] if e["test"]["id"] in keep],
+                    "rejected": suite["rejected"] + [{**e, "lint": [f"left out by {by}"]}
+                                                     for e in suite["accepted"] if e["test"]["id"] not in keep],
+                    "approved_by": by, "approved_at": datetime.now().isoformat(timespec="seconds")}
+        state.approved = str(generator.save(approved, work_dir() / "approved.json"))
+        state.pop("run_dir", None)
+
+    reviewed = all("review" in e for e in suite["accepted"])
+    flagged = [e for e in suite["accepted"] if e.get("review", {}).get("verdict") == "disagree"]
     rows = []
     for e in suite["accepted"]:
         rv = e.get("review", {})
         verdict = rv.get("verdict", "error" if "error" in rv else "not reviewed")
-        rows.append({"approve": verdict != "disagree", "id": e["test"]["id"], "kind": e["test"]["kind"],
+        rows.append({"keep": verdict != "disagree", "id": e["test"]["id"], "kind": e["test"]["kind"],
                      "title": e["test"]["title"],
                      "review": {"agree": "👍 agree", "disagree": "🚩 disagree"}.get(verdict, f"❔ {verdict}")})
-    table = st.data_editor(pd.DataFrame(rows), hide_index=True, width="stretch",
-                           disabled=["id", "kind", "title", "review"], key="approve_table",
-                           column_config={"approve": st.column_config.CheckboxColumn("Keep?")})
 
-    flagged = [e for e in suite["accepted"] if e.get("review", {}).get("verdict") == "disagree"]
+    if manual:
+        table = st.data_editor(pd.DataFrame(rows), hide_index=True, width="stretch",
+                               disabled=["id", "kind", "title", "review"], key="approve_table",
+                               column_config={"keep": st.column_config.CheckboxColumn("Keep?")})
+        keep = set(table.loc[table["keep"], "id"])
+        if st.button(f"Approve {len(keep)} of {len(rows)} tests", type="primary", disabled=not keep):
+            approve(keep, "human")
+    else:
+        st.dataframe(pd.DataFrame(rows).drop(columns="keep"), hide_index=True, width="stretch")
+        if reviewed and "approved" not in state:
+            approve({r["id"] for r in rows if r["keep"]}, "AI review")
+
     for e in flagged:
-        st.error(f"🚩 **{e['test']['id']}** — reviewer disagrees:\n" +
-                 "\n".join(f"- {i}" for i in e["review"]["issues"]))
+        st.error(f"🚩 **{e['test']['id']}** — reviewer disagrees, {'untick to leave out' if manual else 'left out'}:\n"
+                 + "\n".join(f"- {i}" for i in e["review"]["issues"]))
     with st.expander("See every test"):
         for e in suite["accepted"]:
             st.markdown(f"**{e['test']['id']}** · {e['test']['kind']} · {e['test']['title']}")
             st.markdown(describe(e["test"]))
-
-    keep = set(table.loc[table["approve"], "id"])
-    if st.button(f"Approve {len(keep)} of {len(rows)} tests", type="primary", disabled=not keep):
-        approved = {**suite, "accepted": [e for e in suite["accepted"] if e["test"]["id"] in keep],
-                    "rejected": suite["rejected"] + [{**e, "lint": ["rejected by human reviewer"]}
-                                                     for e in suite["accepted"] if e["test"]["id"] not in keep],
-                    "approved_at": datetime.now().isoformat(timespec="seconds")}
-        path = generator.save(approved, work_dir() / "approved.json")
-        state.approved = str(path)
-        state.pop("run_dir", None)
 
 # ---------------------------------------------------------------- 4. run
 if "approved" in state:
