@@ -1,0 +1,9 @@
+✅ PASS      R1-02  Subtotal exactly $100.00 qualifies for 10% spend discount
+   🔧 repair 1: rewrite → passes on baseline (step 2 tier_discount: 0.00 → 10.00)
+✅ PASS      R5-02  Apply LESS5 coupon to get $5.00 off subtotal
+   🔧 repair 1: rewrite → passes on baseline (step 3 coupon_discount: 10.00 → 5.00)
+✅ PASS      R3-02  Add item with quantity 21 exceeding maximum limit
+   🔧 repair 1: rewrite → passes on baseline (step 2 detail.code: OUT_OF_STOCK → QTY_RANGE)
+
+PASS 3 · BUG 0 · BAD_TEST 0 · ENV_ERROR 0
+Report: /Users/marcusng/tiktok/runs/20261101-140519/report.html

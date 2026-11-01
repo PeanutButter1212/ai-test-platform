@@ -35,7 +35,7 @@ bug-free shop, so they were wrong tests:
 | Expectations not grounded in the spec | Tests are JSON data. Every check must cite a rule ID, and the linter rejects checks without one |
 | Assertions hidden inside free-form code | Checks are declarative (`status`, `field equals`), so they can be shown in a table and reviewed |
 | Wrong oracles look like bugs | Every test is first run against the known-good version; a test that fails there is marked a bad test, not a bug |
-| Shallow tests miss bugs | The prompt asks for normal, boundary and error cases per rule and for side effects to be read back (second-model review is planned, not built yet) |
+| Shallow tests miss bugs | The prompt asks for normal, boundary and error cases per rule and for side effects to be read back (a second model now reviews every test blind; see `docs/review-tuning.md`) |
 | Arbitrary generated code is executed | Only our engine executes; the LLM output is data |
 
 The cost: the DSL is less expressive than Python, and the engine is ours to build and maintain.

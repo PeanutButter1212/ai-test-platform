@@ -1,6 +1,6 @@
 """Does the reviewer catch wrong tests? Break 3 correct tests on purpose and review them.
 
-    PYTHONPATH=. python scripts/check_reviewer.py [ollama|gemini] [MODEL]
+    PYTHONPATH=. python scripts/check_reviewer.py [gemini|ollama] [MODEL]
 """
 
 import json, copy, sys
@@ -9,7 +9,9 @@ from tester.review import review_test
 from tester.llm import LLM
 suite = json.loads(Path("generated/v2/suite.json").read_text())
 spec = Path(suite["spec"]).read_text()
-llm = LLM(provider=sys.argv[1] if len(sys.argv) > 1 else 'ollama', model=sys.argv[2] if len(sys.argv) > 2 else None)
+from tester.review import DEFAULT_GEMINI_MODEL
+provider = sys.argv[1] if len(sys.argv) > 1 else 'gemini'
+llm = LLM(provider=provider, model=sys.argv[2] if len(sys.argv) > 2 else (DEFAULT_GEMINI_MODEL if provider == 'gemini' else None))
 tests = {e["test"]["id"]: e["test"] for e in suite["accepted"]}
 def mutate(tid, field, new, note):
     t = copy.deepcopy(tests[tid])

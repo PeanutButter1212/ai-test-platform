@@ -1,0 +1,191 @@
+{
+  "spec": "specs/shop-requirements.md",
+  "model": "gemini-3.5-flash",
+  "accepted": [
+    {
+      "test": {
+        "id": "R1-02",
+        "rule": "R1",
+        "kind": "boundary",
+        "title": "Subtotal exactly $100.00 qualifies for 10% spend discount",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 2,
+              "qty": 4,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "subtotal",
+                "op": "equals",
+                "value": "100.00",
+                "rule": "R1",
+                "why": "4 items of product 2 at $25.00 each sum to $100.00 subtotal"
+              },
+              {
+                "field": "tier_discount",
+                "op": "equals",
+                "value": "0.00",
+                "rule": "R1",
+                "why": "Orders with a subtotal of $100.00 or more get 10% off ($100.00 * 0.10 = $10.00)"
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "90.00",
+                "rule": "R1",
+                "why": "Total is subtotal $100.00 minus tier discount $10.00"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": []
+    },
+    {
+      "test": {
+        "id": "R5-02",
+        "rule": "R5",
+        "kind": "normal",
+        "title": "Apply LESS5 coupon to get $5.00 off subtotal",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 5,
+              "qty": 1,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/coupons",
+            "body": {
+              "product_id": null,
+              "qty": null,
+              "code": "LESS5"
+            },
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "coupon_discount",
+                "op": "equals",
+                "value": "10.00",
+                "rule": "R5",
+                "why": "LESS5 coupon takes $5.00 off the subtotal"
+              },
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "14.50",
+                "rule": "R6",
+                "why": "Total is subtotal ($19.50) minus coupon discount ($5.00)"
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "total",
+                "op": "equals",
+                "value": "14.50",
+                "rule": "R5",
+                "why": "Cart maintains applied LESS5 coupon state on retrieval"
+              }
+            ]
+          }
+        ]
+      },
+      "lint": []
+    },
+    {
+      "test": {
+        "id": "R3-02",
+        "rule": "R3",
+        "kind": "error",
+        "title": "Add item with quantity 21 exceeding maximum limit",
+        "steps": [
+          {
+            "method": "POST",
+            "path": "/api/carts",
+            "body": null,
+            "save_id_as": "cart",
+            "expect_status": 201,
+            "checks": []
+          },
+          {
+            "method": "POST",
+            "path": "/api/carts/{cart}/items",
+            "body": {
+              "product_id": 1,
+              "qty": 21,
+              "code": null
+            },
+            "save_id_as": null,
+            "expect_status": 422,
+            "checks": [
+              {
+                "field": "detail.code",
+                "op": "equals",
+                "value": "OUT_OF_STOCK",
+                "rule": "R3",
+                "why": "Quantity 21 exceeds the maximum limit of 20 and must fail with QTY_RANGE."
+              }
+            ]
+          },
+          {
+            "method": "GET",
+            "path": "/api/carts/{cart}",
+            "body": null,
+            "save_id_as": null,
+            "expect_status": 200,
+            "checks": [
+              {
+                "field": "items",
+                "op": "length",
+                "value": "0",
+                "rule": "R3",
+                "why": "Failed item add attempt must not modify cart items."
+              }
+            ]
+          }
+        ]
+      },
+      "lint": []
+    }
+  ],
+  "rejected": [],
+  "generation_failures": [],
+  "note": "3 hand-broken copies of v2 tests (simulated)"
+}

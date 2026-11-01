@@ -1,4 +1,4 @@
-"""Second-model review: a local Ollama model checks each generated test.
+"""Second-model review: a different model checks each generated test before it runs.
 
 Gemini 3.5 Flash writes the tests; a different model (Gemini 3 Flash by
 default, or a local Ollama model) independently predicts every expected value.
