@@ -4,6 +4,28 @@ You type the rules of an app in plain English. AI writes tests for those rules, 
 
 The app being tested is a small online shop (`shop/`) with 3 planted bugs (`docs/seeded-defects.md`).
 
+## Who it is for, and what it covers
+
+**Users:** developers and QA people on a product team (for example an e-commerce team like TikTok Shop) who have written business rules and want them tested quickly, without writing every test by hand.
+
+**Problem:** writing tests by hand is slow. Asking an AI to write them is fast, but the AI makes mistakes. You get fake bug reports, missed bugs, and no way to tell which failures are real.
+
+**In scope:** rules for a web API (a backend that answers requests), written in plain English. The tool covers:
+- turning the rules into tests;
+- running them on a fresh copy of the app;
+- deciding bug vs. wrong test vs. unstable;
+- pointing to the faulty line;
+- retesting after a fix.
+
+**Out of scope:**
+- clicking through a website;
+- speed and load tests;
+- many users acting at the same time;
+- large codebases;
+- logins.
+
+**Done:** everything in "How it works" below runs end to end, on the screen and from the terminal.
+
 ## How it works
 
 ```
@@ -21,6 +43,65 @@ You type requirements
 ```
 
 **AI** writes, reviews and judges. **Code** runs the tests, decides pass/fail, and checks that the line the AI blames really exists. **A human** fixes bugs and decides anything the AI is unsure about.
+
+## Main parts
+
+| Part | File | AI or code? |
+|---|---|---|
+| Turn typed text into numbered rules, ask questions | `tester/requirements.py` | AI |
+| Write tests as filled-in forms | `tester/generator.py`, form in `tester/dsl.py` | AI |
+| Reject broken forms (unknown rule, unknown page, checks nothing) | `tester/lint.py` | code |
+| Blind second review | `tester/review.py` | AI predicts, code compares |
+| Start a fresh shop with its own database | `tester/env.py` | code |
+| Send the requests, decide pass/fail per check | `tester/engine.py` | code |
+| Run every test 3 times, decide the verdict | `tester/runner.py` | code |
+| Judge a failure: code, test or unsure; check the blamed line exists | `tester/triage.py` | AI judges, code verifies |
+| Fix a wrong test | `tester/repair.py` | AI rewrites, code re-checks and re-runs |
+| Report, screen, terminal | `tester/report.py`, `ui/app.py`, `tester/__main__.py` | code |
+| One place for every AI call: cache, log, fallback model | `tester/llm.py` | code |
+
+**The states a test goes through:**
+
+```
+written → rejected by linter
+        → flagged by reviewer (left out)
+        → run 3 times → PASS
+                      → UNSTABLE (runs disagree)
+                      → ENV_ERROR (shop unreachable / 503)
+                      → same failure 3 times → AI judge → BUG
+                                                        → BAD_TEST (repaired, now passes)
+                                                        → NEEDS_REVIEW
+```
+
+## Two key decisions
+
+**1. Tests are a form the AI fills in, not code the AI writes** (`tester/dsl.py`)
+- **Other option:** let the AI write test code (version 1 did this).
+- **Why:**
+  - our code can check a form before running it;
+  - every expected value must name a rule;
+  - only our code runs anything.
+- **Trade-off:** tests can only do what the form allows (API calls and value checks). A new kind of test needs a new form and a runner for it.
+
+**2. An AI judge decides bug vs. wrong test** (`tester/runner.py`, `tester/triage.py`)
+- **Other option:** run every test on a known bug-free copy, so code alone decides (built first, then removed).
+- **Why:** a bug-free copy rarely exists in real life, and never for a new feature.
+- **Trade-off:** the verdict is now an AI judgement, not a fact. To limit that:
+  - code still decides every pass/fail;
+  - a BUG needs the blamed line to really exist;
+  - a BAD_TEST needs the AI's rewritten test to pass;
+  - everything else goes to a human.
+
+## Design point of view
+
+**AI suggests, code verifies, people decide what is uncertain. The tool never hides uncertainty.** You can see this in the screen and the report:
+- every verdict has its own label (UNSTABLE, NEEDS_REVIEW, ENV_ERROR) instead of a forced pass or fail;
+- a pass on a rerun is never shown as a pass;
+- AI fix suggestions are marked "advice only" with "location verified" or "not verified";
+- each AI step shows whether its answer was live or from the cache;
+- raw requests and responses are always one click away.
+
+"How the idea changed" below is the design iteration.
 
 ## How the idea changed
 
@@ -76,7 +157,7 @@ Free code can do anything, so it is hard to check and does not say which rule it
 
 The form is defined in `tester/dsl.py`.
 
-Also this is extendable to any other test cases by changign the format of the template.
+Also this is extendable to any other test cases by changing the format of the template.
 
 **2. The local second reviewer was not accurate enough.** I wanted a second AI to double-check every test, and first tried a free local model (Qwen via Ollama).
 
@@ -86,7 +167,7 @@ Also this is extendable to any other test cases by changign the format of the te
 - A bigger version was worse (11) and 25× slower.
 - So I switched the reviewer to Gemini 3 Flash: it catches all broken tests and wrongly flags 0. (`docs/review-tuning.md`)
 
-This itself is another limitation as the model is reviewing another Gemini mode. Ideally we should use either claude/chatgpt but due to APIs not being free I was unable to test it.
+This itself is another limitation as the model is reviewing another Gemini model. Ideally we should use either claude/chatgpt but due to APIs not being free I was unable to test it.
 
 **3. Comparing with a bug-free copy was unrealistic.** To tell "bug" from "bad test", I first ran every test on a saved bug-free copy of the shop too. If a test failed there as well, the test was wrong.
 
@@ -98,7 +179,20 @@ This itself is another limitation as the model is reviewing another Gemini mode.
 - Wrong tests used to be thrown away; now the AI fixes its own test.
 - Human approval of tests is now optional: tests the reviewer flags are left out automatically.
 
+## What I reused, changed and built
+
+| | What |
+|---|---|
+| **Reused as-is** | FastAPI, Uvicorn, SQLite (the shop); httpx (sending requests); Pydantic (the test form); Streamlit + pandas (the screen); pytest; python-dotenv; Google's `google-genai` library with Gemini 3.5 Flash (writes tests, judges failures, repairs tests) and Gemini 3 Flash (reviewer); Ollama + Qwen 2.5 (tried as reviewer, dropped) |
+| **Changed** | Nothing was forked. The only borrowed idea is the standard practice of rerunning tests to spot flakiness. |
+| **Built by me** | The shop and its 3 planted bugs; the test form and linter; the test runner; the blind review method; the AI judge and its line check; the self-repair loop; the 3× reruns; the report, screen and terminal tool; all prompts |
+| **AI coding tool** | Claude Code helped write the code. I made the product decisions and corrected it along the way (see "How the idea changed"). |
+
+**Most valuable contribution:** making AI-written tests trustworthy. AI only fills in a checked form, a second model reviews it blind, and every AI verdict is backed by something code can check: the blamed line exists, the repaired test passes, the runs agree.
+
 ## Run it
+
+**Version:** git tag `v1.0`. Python 3.12. Libraries are in `requirements.txt`. Gemini needs a free API key; Ollama is optional.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -113,7 +207,30 @@ cp .env.example .env              # add a free Gemini API key
 | Or from the terminal | `python -m tester generate` then `python -m tester run` | report in `runs/`     |
 | Unit tests           | `pytest`                                                |                       |
 
-AI answers are saved in `llm_cache/`, so repeating the same request costs nothing. Every AI call is logged in `runs/llm_calls.jsonl`.
+AI answers are saved in `llm_cache/`, so repeating the same request costs nothing. Every AI call is logged in `runs/llm_calls.jsonl`. Set `LLM_REPLAY=1` to use only saved answers (works offline).
+
+Try the random-failure switch: `SHOP_FLAKY=0.3 python -m tester run`.
+
+## What is real, simulated, pre-generated or recorded
+
+| Label | What |
+|---|---|
+| **Real** | Every test run (real requests to a real shop on your machine) and every live AI call |
+| **Simulated** | The 3 bugs (planted on purpose); the 3 broken tests in `generated/broken/` (planted AI mistakes); random checkout failures (`SHOP_FLAKY`, `shop/chaos.py`) |
+| **Pre-generated** | `generated/v2/suite.json` (tests written by Gemini earlier). AI answers in `llm_cache/` are reused when the same request is repeated; the screen shows "cached" when this happens |
+| **Recorded** | Everything in `evidence/`: saved runs with raw results, reports and server logs |
+| **Screen-recorded** | Nothing |
+
+## Limitations
+
+- **The AI judge can be wrong.** It decides "bug or wrong test" from reading the code. It is only checked partly (the blamed line must exist, a repaired test must pass).
+- **A wrong test can hide a bug** if it makes the same mistake as the code. The reviewer catches some of these, not all.
+- **The reviewer and the writer are both Gemini,** so they may share blind spots. Free APIs from other vendors were not available to test.
+- **The AI judge reads a fixed list of 3 files.** A large codebase would need the AI to search for the right files itself.
+- **Only API tests with exact values.** No website clicks, speed, or many users at once.
+- **Flakiness that shows up less than once in 3 runs** can be missed. A real bug that also fails randomly shows as UNSTABLE, not BUG.
+- **Tested on one small shop with 3 planted bugs.** The numbers here are evidence, not a benchmark.
+- **The free Gemini quota runs out quickly.** Cached answers make repeat runs free, but new requirements need live calls.
 
 ## Proof
 
