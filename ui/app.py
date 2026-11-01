@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from tester import generator, report, requirements, review, runner  # noqa: E402
-from tester.llm import LLM, LLMError  # noqa: E402
+from tester.llm import LOG_PATH, LLM, LLMError  # noqa: E402
 
 ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "⚠️", "ENV_ERROR": "🔌"}
 
@@ -27,6 +27,7 @@ state = st.session_state
 state.setdefault("messages", [])
 state.setdefault("rules", [])
 state.setdefault("questions", [])
+state.setdefault("ai_calls", {})
 
 
 def reset_from(step: str):
@@ -41,6 +42,24 @@ def work_dir() -> Path:
         state.work_dir = ROOT / "runs" / "ui" / datetime.now().strftime("%Y%m%d-%H%M%S")
         state.work_dir.mkdir(parents=True)
     return state.work_dir
+
+
+def log_offset() -> int:
+    return LOG_PATH.stat().st_size if LOG_PATH.exists() else 0
+
+
+def count_calls(step: str, offset: int):
+    """Count the AI calls a step made since `offset` in the raw call log, by source (live/cache/failed)."""
+    with LOG_PATH.open() as f:
+        f.seek(offset)
+        sources = [json.loads(line).get("source") for line in f if line.strip()]
+    state.ai_calls[step] = {src: sources.count(src) for src in ("live", "cache", "failed") if src in sources}
+
+
+def ai_note(step: str):
+    calls = state.ai_calls.get(step)
+    if calls:
+        st.caption("AI calls · " + " · ".join(f"{n} {'cached' if src == 'cache' else src}" for src, n in calls.items()))
 
 
 def describe(test: dict) -> str:
@@ -82,6 +101,7 @@ for m in state.messages:
 
 if prompt := st.chat_input("e.g. Orders of $100 or more get 10% off. Only one coupon per cart."):
     state.messages.append({"role": "user", "content": prompt})
+    offset = log_offset()
     with st.spinner("Structuring requirements…"):
         try:
             result = requirements.structure(state.messages)
@@ -96,6 +116,7 @@ if prompt := st.chat_input("e.g. Orders of $100 or more get 10% off. Only one co
             else:
                 reply += " Nothing is unclear; you can generate tests."
             state.messages.append({"role": "assistant", "content": reply})
+    count_calls("requirements", offset)
     reset_from("suite")
     st.rerun()
 
@@ -112,6 +133,7 @@ if state.rules:
     if rules != state.rules:
         state.rules = rules
         reset_from("suite")
+    ai_note("requirements")
     if state.questions:
         st.info("The AI still has open questions above. Answer them in the chat, or generate anyway.")
 
@@ -121,6 +143,7 @@ if state.rules:
     if st.button("Generate tests with AI", type="primary"):
         spec_path = work_dir() / "spec.md"
         spec_path.write_text(requirements.compose(state.rules))
+        offset = log_offset()
         suite = {"spec": str(spec_path), "model": None, "accepted": [], "rejected": [], "generation_failures": []}
         progress = st.progress(0.0, text="Generating…")
         for n, rule in enumerate(state.rules, 1):
@@ -130,6 +153,7 @@ if state.rules:
             for key in ("accepted", "rejected", "generation_failures"):
                 suite[key] += part[key]
         progress.empty()
+        count_calls("generate", offset)
         generator.save(suite, work_dir() / "suite.json")
         reset_from("approved")
         state.suite = suite
@@ -140,6 +164,7 @@ if state.rules:
         c1.metric("Tests written", len(suite["accepted"]) + len(suite["rejected"]))
         c2.metric("Passed the linter", len(suite["accepted"]))
         c3.metric("Rejected by linter", len(suite["rejected"]))
+        ai_note("generate")
         for r in suite["rejected"]:
             st.warning(f"Linter rejected **{r['test']['id']}**: {'; '.join(r['lint'])}")
         for f in suite["generation_failures"]:
@@ -155,13 +180,16 @@ if "suite" in state and state.suite["accepted"]:
     if st.button("Run AI review"):
         llm = LLM(model=review.DEFAULT_GEMINI_MODEL)
         spec = Path(suite["spec"]).read_text()
+        offset = log_offset()
         progress = st.progress(0.0)
         for n, entry in enumerate(suite["accepted"], 1):
             progress.progress((n - 1) / len(suite["accepted"]), text=f"Reviewing {entry['test']['id']}…")
             entry["review"] = review.review_test(entry["test"], spec, llm)
         progress.empty()
+        count_calls("review", offset)
         generator.save(suite, work_dir() / "suite.json")
         reset_from("approved")
+    ai_note("review")
 
     def approve(keep: set[str], by: str):
         approved = {**suite, "accepted": [e for e in suite["accepted"] if e["test"]["id"] in keep],
@@ -207,8 +235,10 @@ if "approved" in state:
     st.caption("Each test runs on the known-good baseline and on the current code, each in its own fresh copy "
                "of the shop. Passing on the baseline but failing on the code = BUG. Failing on the baseline = BAD_TEST.")
     if st.button("Run tests", type="primary"):
+        offset = log_offset()
         with st.spinner("Starting two shop instances and running every test on both…"):
             state.run_dir = str(runner.run_suite(state.approved))
+        count_calls("run", offset)  # AI repairs and fix suggestions
 
     if "run_dir" in state:
         run_dir = Path(state.run_dir)
@@ -220,6 +250,7 @@ if "approved" in state:
             cols = st.columns(4)
             for col, verdict in zip(cols, ICONS):
                 col.metric(f"{ICONS[verdict]} {verdict}", sum(r["verdict"] == verdict for r in results))
+            ai_note("run")
             for r in results:
                 if r["verdict"] != "BUG":
                     continue
