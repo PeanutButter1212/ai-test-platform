@@ -1,21 +1,21 @@
-✅ PASS      R1-01  Subtotal below $100.00 receives no spend discount
-✅ PASS      R1-02  Subtotal exactly $100.00 qualifies for 10% spend discount
-✅ PASS      R1-03  Subtotal exceeding $100.00 applies 10% discount rounded half-up
-✅ PASS      R1-04  Updating cart quantity across $100 boundary dynamically applies tier discount and persists state
-❌ BUG       R2-01  Applying a second coupon fails with 409 COUPON_LIMIT and leaves cart unchanged  → <status>: expected 409, got 200
+✅ PASS         R1-01  Subtotal below $100.00 receives no spend discount
+✅ PASS         R1-02  Subtotal exactly $100.00 qualifies for 10% spend discount
+✅ PASS         R1-03  Subtotal exceeding $100.00 applies 10% discount rounded half-up
+✅ PASS         R1-04  Updating cart quantity across $100 boundary dynamically applies tier discount and persists state
+❌ BUG          R2-01  Applying a second coupon fails with 409 COUPON_LIMIT and leaves cart unchanged  → <status>: expected 409, got 200
    🤖 AI: The apply_coupon endpoint checks if the specific coupon code is already added rather than checking if any coupon is applied to the cart.
       at shop/app.py:182 · suggested fix: applied = conn.execute(
             "SELECT COUNT(*) FROM cart_coupons WHERE cart_id = ?", (cart_id,)
         ).fetchone()[0]
-✅ PASS      R2-02  Applying a second coupon with same code in lowercase fails with 409 COUPON_LIMIT
-✅ PASS      R2-03  Removing an applied coupon allows applying a new coupon
-✅ PASS      R3-01  Add item with maximum allowed quantity of 20
-✅ PASS      R3-02  Add item with quantity 21 exceeding maximum limit
-✅ PASS      R3-03  Add item with quantity 0 below minimum limit
-✅ PASS      R3-04  Add quantity to existing item causing cumulative quantity to exceed 20
-✅ PASS      R4-01  Checkout succeeds when item quantity exactly equals available stock
-✅ PASS      R4-02  Checkout fails with 409 OUT_OF_STOCK when item quantity exceeds available stock
-❌ BUG       R4-03  Multi-item checkout failure preserves stock for all products in cart  → [id=3].stock: expected 5, got 3
+✅ PASS         R2-02  Applying a second coupon with same code in lowercase fails with 409 COUPON_LIMIT
+✅ PASS         R2-03  Removing an applied coupon allows applying a new coupon
+✅ PASS         R3-01  Add item with maximum allowed quantity of 20
+✅ PASS         R3-02  Add item with quantity 21 exceeding maximum limit
+✅ PASS         R3-03  Add item with quantity 0 below minimum limit
+✅ PASS         R3-04  Add quantity to existing item causing cumulative quantity to exceed 20
+✅ PASS         R4-01  Checkout succeeds when item quantity exactly equals available stock
+✅ PASS         R4-02  Checkout fails with 409 OUT_OF_STOCK when item quantity exceeds available stock
+❌ BUG          R4-03  Multi-item checkout failure preserves stock for all products in cart  → [id=3].stock: expected 5, got 3
    🤖 AI: Checkout commits stock updates per item inside the loop, preserving stock deductions for earlier items when a later item triggers an out-of-stock error.
       at shop/app.py:210 · suggested fix: for item in view["items"]:
             stock = conn.execute(
@@ -28,18 +28,18 @@
                 "UPDATE products SET stock = stock - ? WHERE id = ?",
                 (item["qty"], item["product_id"]),
             )
-✅ PASS      R5-01  Apply SAVE10 coupon to get 10% off subtotal
-✅ PASS      R5-02  Apply LESS5 coupon to get $5.00 off subtotal
-✅ PASS      R5-03  Apply coupon code in lowercase (case-insensitivity)
-✅ PASS      R5-04  Apply unknown coupon code fails with 404 COUPON_NOT_FOUND
-✅ PASS      R6-01  Verify total calculation with both spend discount and percentage coupon
-✅ PASS      R6-02  Verify total calculation with spend discount and fixed amount coupon
-✅ PASS      R6-03  Verify total calculation at exactly $100.00 subtotal boundary
-✅ PASS      R6-04  Verify checkout total matches cart total calculation
-✅ PASS      R7-01  Successful checkout reduces stock and applies discounts
-✅ PASS      R7-02  Checkout fails for an empty cart
-✅ PASS      R7-03  Checkout succeeds when buying exactly the remaining stock
-✅ PASS      R7-04  Checkout fails and preserves stock if quantity exceeds availability
+✅ PASS         R5-01  Apply SAVE10 coupon to get 10% off subtotal
+✅ PASS         R5-02  Apply LESS5 coupon to get $5.00 off subtotal
+✅ PASS         R5-03  Apply coupon code in lowercase (case-insensitivity)
+✅ PASS         R5-04  Apply unknown coupon code fails with 404 COUPON_NOT_FOUND
+✅ PASS         R6-01  Verify total calculation with both spend discount and percentage coupon
+✅ PASS         R6-02  Verify total calculation with spend discount and fixed amount coupon
+✅ PASS         R6-03  Verify total calculation at exactly $100.00 subtotal boundary
+✅ PASS         R6-04  Verify checkout total matches cart total calculation
+✅ PASS         R7-01  Successful checkout reduces stock and applies discounts
+✅ PASS         R7-02  Checkout fails for an empty cart
+✅ PASS         R7-03  Checkout succeeds when buying exactly the remaining stock
+✅ PASS         R7-04  Checkout fails and preserves stock if quantity exceeds availability
 
-PASS 24 · BUG 2 · BAD_TEST 0 · ENV_ERROR 0
-Report: /Users/marcusng/tiktok/runs/20261101-144220/report.html
+PASS 24 · BUG 2 · BAD_TEST 0 · NEEDS_REVIEW 0 · ENV_ERROR 0
+Report: /Users/marcusng/tiktok/runs/20261101-150505/report.html
