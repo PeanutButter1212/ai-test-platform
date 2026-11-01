@@ -82,7 +82,7 @@ It is blind on purpose: when the reviewer could see the answers, it agreed with 
 | Judge a failure: code, test or unsure; check the blamed line exists | `tester/triage.py`                                    | AI judges, code verifies                |
 | Fix a wrong test                                                    | `tester/repair.py`                                    | AI rewrites, code re-checks and re-runs |
 | Report, screen, terminal                                            | `tester/report.py`, `ui/app.py`, `tester/__main__.py` | code                                    |
-| One place for every AI call: cache, log, fallback model             | `tester/llm.py`                                       | code                                    |
+| One place for every AI call: log, fallback model, saved answers      | `tester/llm.py`                                       | code                                    |
 
 **The states a test goes through:**
 
@@ -125,7 +125,7 @@ written → rejected by linter
 - every verdict has its own label (UNSTABLE, NEEDS_REVIEW, ENV_ERROR) instead of a forced pass or fail;
 - a pass on a rerun is never shown as a pass;
 - AI fix suggestions are marked "advice only" with "location verified" or "not verified";
-- each AI step shows whether its answer was live or from the cache;
+- each AI step shows whether its answer was live or saved;
 - raw requests and responses are always one click away.
 
 "How the idea changed" below is the design iteration.
@@ -234,7 +234,7 @@ cp .env.example .env              # add a free Gemini API key
 | Or from the terminal | `python -m tester generate` then `python -m tester run` | report in `runs/`     |
 | Unit tests           | `pytest`                                                |                       |
 
-AI answers are saved in `llm_cache/`, so repeating the same request costs nothing. Every AI call is logged in `runs/llm_calls.jsonl`. Set `LLM_REPLAY=1` to use only saved answers (works offline).
+Every AI call is logged in `runs/llm_calls.jsonl`.
 
 Try the random-failure switch: `SHOP_FLAKY=0.3 python -m tester run`.
 
@@ -244,7 +244,7 @@ Try the random-failure switch: `SHOP_FLAKY=0.3 python -m tester run`.
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Real**            | Every test run (real requests to a real shop on your machine) and every live AI call                                                                                              |
 | **Simulated**       | The 3 bugs (planted on purpose); the 3 broken tests in `generated/broken/` (planted AI mistakes); random checkout failures (`SHOP_FLAKY`, `shop/chaos.py`)                        |
-| **Pre-generated**   | `generated/v2/suite.json` (tests written by Gemini earlier). AI answers in `llm_cache/` are reused when the same request is repeated; the screen shows "cached" when this happens |
+| **Pre-generated**   | `generated/v2/suite.json` (tests written by Gemini earlier). The example requirements reuse AI answers saved earlier, to save free API quota. Anything typed is always live |
 | **Recorded**        | Everything in `evidence/`: saved runs with raw results, reports and server logs                                                                                                   |
 | **Screen-recorded** | Nothing                                                                                                                                                                           |
 
