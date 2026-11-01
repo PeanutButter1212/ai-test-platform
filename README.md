@@ -38,14 +38,14 @@ The app being tested is a small online shop (`shop/`) with 3 planted bugs (`docs
 
 Every test ends with one label:
 
-| Label            | Meaning                                                                    | Who decides                                           |
-| ---------------- | -------------------------------------------------------------------------- | ----------------------------------------------------- |
-| **PASS**         | The shop follows the rule                                                  | Code                                                  |
-| **BUG**          | The code breaks the rule. Shows the faulty line and a suggested fix        | AI judges; code checks the line really exists         |
-| **BAD_TEST**     | The test was wrong. The AI rewrote it and the new test passed              | AI rewrites; code reruns it                           |
+| Label            | Meaning                                                                            | Who decides                                   |
+| ---------------- | ---------------------------------------------------------------------------------- | --------------------------------------------- |
+| **PASS**         | The shop follows the rule                                                          | Code                                          |
+| **BUG**          | The code breaks the rule. Shows the faulty line and a suggested fix                | AI judges; code checks the line really exists |
+| **BAD_TEST**     | The test was wrong. The AI rewrote it and the new test passed                      | AI rewrites; code reruns it                   |
 | **NEEDS_REVIEW** | It failed every time, but the AI can't prove whether the code or the test is wrong | A human                                       |
-| **UNSTABLE**     | The 3 runs gave different results (e.g. pass, fail, pass)                  | Code; a human looks. Never counted as a pass          |
-| **ENV_ERROR**    | The shop was down or unreachable, so the test could not be judged          | Code                                                  |
+| **UNSTABLE**     | The 3 runs gave different results (e.g. pass, fail, pass)                          | Code; a human looks. Never counted as a pass  |
+| **ENV_ERROR**    | The shop was down or unreachable, so the test could not be judged                  | Code                                          |
 
 **AI** writes, reviews and judges. **Code** runs the tests, decides pass/fail, and checks that the line the AI blames really exists. **A human** fixes bugs and decides anything the AI is unsure about.
 
@@ -268,7 +268,7 @@ Try the random-failure switch: `SHOP_FLAKY=0.3 python -m tester run`.
 
 ## Unfinished parts
 
-- **The AI judge can't look for files itself.** It is given 3 fixed files; a real codebase needs it to search for the right ones.
+- **The AI judge can't look for files itself.** It is given 3 fixed files; a real codebase needs it to search for the right ones. This is where there's potential for another agent to search for the relevant files before sending them for evaluation.
 - **The test form only covers API value checks.** Speed or website tests would need a new form and a runner for it.
 - **UNSTABLE doesn't say which run was different.** All attempts are saved, but you have to compare them yourself.
 
