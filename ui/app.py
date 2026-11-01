@@ -280,6 +280,7 @@ if "approved" in state:
                             f"(attempt {a['attempt']}: {a['outcome']}).  \n{a.get('diagnosis') or a.get('error', '')}"
                             + "".join(f"  \n`{c}`" for c in changes))
             st.dataframe(pd.DataFrame([{"verdict": f"{ICONS[r['verdict']]} {r['verdict']}", "id": r["test"]["id"],
+                                        "attempts": report.attempt_marks(r.get("attempts") or [r["target"]]),
                                         "title": r["test"]["title"]} for r in results]),
                          hide_index=True, width="stretch")
         with st.expander("Full report (also saved to disk)"):
