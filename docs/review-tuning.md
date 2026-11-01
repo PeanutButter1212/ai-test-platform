@@ -2,7 +2,7 @@
 
 **What it is:** Gemini 3.5 Flash writes the tests. A second model reviews them before they run, and flagged tests go to a human; nothing is fixed automatically.
 
-**Outcome:** I first tried a free, local model (Qwen 2.5 7B and 14B via Ollama). It caught every broken test but raised too many false alarms, so the default reviewer is now **Gemini 3 Flash**: 3/3 broken tests caught, 0 false alarms. The local option is kept (`--provider ollama`) for offline use.
+**Outcome:** I first tried a free, local model (Qwen 2.5 7B and 14B via Ollama). It caught every broken test but raised too many false alarms, even after four rounds of improving the prompt and the comparison (the model itself was not retrained). So the default reviewer is now **Gemini 3 Flash**: 3/3 broken tests caught, 0 false alarms. The local option is kept (`--provider ollama`) for offline use.
 
 **How to check it works:** break 3 correct tests on purpose and see if the reviewer catches them (`scripts/check_reviewer.py`):
 
