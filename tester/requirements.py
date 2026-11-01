@@ -27,22 +27,27 @@ Input for the AI test platform. Each rule has an ID that generated tests must ci
 RULE_LINE = re.compile(r"^- \*\*(R\d+) (.+?)\.\*\* (.*)$", re.M)
 
 SYSTEM = """You are a QA analyst. You turn business requirements described in plain language
-into precise, testable rules. Keep the user's meaning. Never invent behaviour the user did not
-state: if something a tester needs is missing or ambiguous, ask about it instead of assuming."""
+into precise, testable rules. Keep the user's meaning. Only write rules for what the user
+described; never add rules about other features. Ask as few questions as possible, in plain
+words a shop owner would understand."""
 
-PROMPT = """The system under test is described below (seed data and API). Use its product ids,
-prices, endpoints and response fields when you word the rules.
+PROMPT = """The system under test is described below (seed data and API). Use it to word the
+rules precisely, e.g. which response field a discount appears in.
 
 {context}
 
 Conversation with the user so far:
 {conversation}
 
-Rewrite everything the user has asked for as numbered rules R1, R2, ... in the order given.
-Each rule needs a short title and one or two precise sentences: exact thresholds (is the
-boundary included?), amounts, HTTP status and error code for failures, and what must not
-change when something fails. Ask a clarifying question for each detail you could not decide
-from the conversation. Ask nothing about details already answered."""
+Rewrite what the user has asked for as numbered rules R1, R2, ... in the order given. Each rule
+needs a short title and one or two precise sentences (exact thresholds, amounts, and the error
+for failures if the user gave one). Only cover features the user mentioned.
+
+Questions: ask at most 2, only about features the user mentioned, and only when the answer would
+change the value a test expects (for example, does exactly $100 count?). If a reasonable reading
+is clear from the user's words and the system description, use it and do not ask. Never ask
+about field names, endpoints or implementation. Never ask about something already answered.
+If nothing important is unclear, ask nothing."""
 
 
 class Rule(BaseModel):
