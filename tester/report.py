@@ -5,8 +5,9 @@ from collections import Counter
 from html import escape
 from pathlib import Path
 
-ORDER = ["BUG", "NEEDS_REVIEW", "BAD_TEST", "ENV_ERROR", "PASS"]
+ORDER = ["BUG", "NEEDS_REVIEW", "UNSTABLE", "BAD_TEST", "ENV_ERROR", "PASS"]
 LABELS = {"BUG": "Bug in the code", "NEEDS_REVIEW": "Needs human review", "BAD_TEST": "Wrong test, repaired by AI",
+          "UNSTABLE": "Unstable (reruns disagreed)",
           "ENV_ERROR": "Environment error", "PASS": "Passed"}
 
 CSS = """
@@ -16,11 +17,11 @@ h1{margin:0 0 4px} .meta{color:#6b6878;margin-bottom:16px}
 .tiles{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
 .tile{background:#fff;border:1px solid #ebe8f0;border-radius:12px;padding:10px 16px;min-width:120px}
 .tile b{font-size:24px;display:block}
-.BUG b{color:#b42318} .NEEDS_REVIEW b{color:#b54708} .BAD_TEST b{color:#175cd3} .ENV_ERROR b{color:#6941c6} .PASS b{color:#16a34a}
+.BUG b{color:#b42318} .NEEDS_REVIEW b{color:#b54708} .UNSTABLE b{color:#c4320a} .BAD_TEST b{color:#175cd3} .ENV_ERROR b{color:#6941c6} .PASS b{color:#16a34a}
 details{background:#fff;border:1px solid #ebe8f0;border-radius:12px;margin:8px 0;padding:10px 14px}
 summary{cursor:pointer;font-weight:600} .tag{font-size:12px;padding:1px 8px;border-radius:999px;margin-right:6px}
 .tag.BUG{background:#fee4e2;color:#b42318} .tag.NEEDS_REVIEW{background:#fef0c7;color:#b54708}
-.tag.BAD_TEST{background:#d1e9ff;color:#175cd3}
+.tag.BAD_TEST{background:#d1e9ff;color:#175cd3} .tag.UNSTABLE{background:#ffead5;color:#c4320a}
 .tag.ENV_ERROR{background:#ebe9fe;color:#6941c6} .tag.PASS{background:#dcfae6;color:#16a34a}
 table{border-collapse:collapse;width:100%;margin:8px 0} td,th{border-bottom:1px solid #ebe8f0;padding:4px 6px;text-align:left;vertical-align:top}
 .fail{color:#b42318;font-weight:600} pre{background:#f6f5f9;padding:8px;border-radius:8px;overflow:auto;font-size:12px;margin:4px 0}
@@ -69,6 +70,20 @@ def _raw_steps(run: dict) -> str:
     return "".join(out)
 
 
+def attempt_marks(attempts: list[dict]) -> str:
+    """e.g. '❌ ✅ ❌' for fail, pass, fail."""
+    return " ".join("🔌" if a["error"] else "✅" if a["passed"] else "❌" for a in attempts)
+
+
+def _attempts(attempts: list | None) -> str:
+    if not attempts:
+        return ""
+    rows = "".join(
+        f"<details><summary>Attempt {n}: {attempt_marks([a])}</summary>{_checks_table(a)}{_raw_steps(a)}</details>"
+        for n, a in enumerate(attempts, 1))
+    return f"<p>Ran {len(attempts)} times: {attempt_marks(attempts)}</p>{rows}"
+
+
 def changed_checks(before: dict, after: dict) -> list[str]:
     """Expectations the AI changed while repairing a test, e.g. 'step 2 tier_discount: 0.00 → 10.00'."""
     def values(test):
@@ -110,12 +125,13 @@ def render(run_dir: Path) -> Path:
             for r in group:
                 t = r["test"]
                 shown = r["target"]
-                reason = f"<p class='fail'>🙋 Needs a human: {escape(r['reason'])}</p>" if r.get("reason") else ""
+                label = "🔌 Not judged" if verdict == "ENV_ERROR" else "🙋 Needs a human"
+                reason = f"<p class='fail'>{label}: {escape(r['reason'])}</p>" if r.get("reason") else ""
                 error = f"<p class='fail'>{escape(shown['error'])}</p>" if shown["error"] else ""
                 parts.append(
-                    f"<details {'open' if verdict in ('BUG', 'NEEDS_REVIEW') else ''}><summary><span class='tag {verdict}'>{verdict}</span>"
+                    f"<details {'open' if verdict in ('BUG', 'NEEDS_REVIEW', 'UNSTABLE') else ''}><summary><span class='tag {verdict}'>{verdict}</span>"
                     f"{escape(t['id'])} · {escape(t['title'])} <small>({escape(t['kind'])})</small></summary>"
-                    f"{reason}{_repairs(r.get('repairs'))}"
+                    f"{reason}{_attempts(r.get('attempts'))}{_repairs(r.get('repairs'))}"
                     f"<p>Checks:</p>{error}{_checks_table(shown)}{_triage(r.get('triage'))}"
                     f"<details><summary>Raw requests and responses</summary>{_raw_steps(shown)}</details></details>")
     html = (f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"

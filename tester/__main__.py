@@ -16,7 +16,7 @@ from .llm import LLM
 
 DEFAULT_SPEC = "specs/shop-requirements.md"
 DEFAULT_SUITE = "generated/v2/suite.json"
-ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "🔧", "NEEDS_REVIEW": "🙋", "ENV_ERROR": "🔌"}
+ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "🔧", "NEEDS_REVIEW": "🙋", "UNSTABLE": "⚠️ ", "ENV_ERROR": "🔌"}
 
 
 def cmd_generate(args):
@@ -62,8 +62,10 @@ def cmd_run(args):
             failed = [c for s in r["target"]["steps"] for c in s["checks"] if not c["passed"]]
             detail = f"  → {failed[0]['field']}: expected {failed[0]['expected']}, got {failed[0]['actual']}" if failed else ""
             print(f"{ICONS[r['verdict']]} {r['verdict']:12} {r['test']['id']:6} {r['test']['title']}{detail}")
+            if r.get("attempts"):
+                print(f"   🔁 {len(r['attempts'])} attempts: {report.attempt_marks(r['attempts'])}")
             if r.get("reason"):
-                print(f"   🙋 needs a human: {r['reason']}")
+                print(f"   {'🔌 not judged' if r['verdict'] == 'ENV_ERROR' else '🙋 needs a human'}: {r['reason']}")
             for a in r.get("repairs", []):
                 changes = "; ".join(report.changed_checks(a["before"], a["after"])) if a.get("after") else ""
                 print(f"   🔧 repair {a['attempt']}: {a.get('decision', 'error')} → {a['outcome']}"
