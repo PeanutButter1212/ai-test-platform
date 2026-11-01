@@ -8,7 +8,12 @@ or neither:
   BUG           AI blames the code, and the code it quotes really is in that file
   BAD_TEST      AI blames the test; the AI rewrites it and the rewrite passes
   NEEDS_REVIEW  AI is unsure, quotes code that is not there, or cannot repair the test
-  ENV_ERROR     a request could not be completed -> no conclusion about app or test
+  UNSTABLE      reruns of a failing test gave different results -> not judged, a human should look
+  ENV_ERROR     a request could not be completed, or the server said it was unavailable
+                (502/503/504) -> no conclusion about app or test
+
+Every test runs 1 + RERUNS times (no AI is involved in running, so this is cheap).
+Only consistent results count: mixed results are UNSTABLE, never PASS.
 """
 
 import json
@@ -25,6 +30,30 @@ from .triage import diagnose
 
 ROOT = Path(__file__).resolve().parent.parent
 RUNS_DIR = ROOT / "runs"
+RERUNS = 2
+
+
+def outcome(record: dict):
+    """What a run showed: 'pass', the error, or exactly which checks failed with which values."""
+    if record["error"]:
+        return ("error", record["error"])
+    if record["passed"]:
+        return "pass"
+    return tuple((n, c["field"], c["expected"], c["actual"])
+                 for n, s in enumerate(record["steps"], 1) for c in s["checks"] if not c["passed"])
+
+
+def is_unstable(attempts: list[dict]) -> bool:
+    return len({outcome(a) for a in attempts}) > 1
+
+
+UNAVAILABLE = {"502", "503", "504"}
+
+
+def server_unavailable(record: dict) -> bool:
+    """True if the only thing that failed is the server saying it is temporarily unavailable."""
+    failed = [c for s in record["steps"] for c in s["checks"] if not c["passed"]]
+    return bool(failed) and all(c["field"] == "<status>" and c["actual"] in UNAVAILABLE for c in failed)
 
 
 def judge_failure(test: TestCase, record: dict, spec: str, env: dict, llm: LLM) -> tuple[str, TestCase, dict, dict]:
@@ -61,13 +90,21 @@ def run_suite(suite_path: str, target_ref: str | None = None) -> Path:
             record["target"] = {"ref": env["ref"], "commit": env["commit"]}
             llm = LLM()
             for test in tests:
-                r = run_test(test, env["base_url"])
-                if r["error"]:
-                    verdict, details = "ENV_ERROR", {}
+                # Never trust a single run, pass or fail: repeat it, and keep every attempt.
+                attempts = [run_test(test, env["base_url"]) for _ in range(1 + RERUNS)]
+                r, details = attempts[0], {"attempts": attempts}
+                if is_unstable(attempts):
+                    verdict = "UNSTABLE"
                 elif r["passed"]:
-                    verdict, details = "PASS", {}
+                    verdict = "PASS"
+                elif r["error"]:
+                    verdict = "ENV_ERROR"
+                elif server_unavailable(r):
+                    verdict = "ENV_ERROR"
+                    details["reason"] = "the server said it was temporarily unavailable, so nothing was judged"
                 else:
-                    verdict, test, r, details = judge_failure(test, r, spec, env, llm)
+                    verdict, test, r, judged = judge_failure(test, r, spec, env, llm)
+                    details.update(judged)
                 record["results"].append({"test": test.model_dump(), "verdict": verdict, "target": r, **details})
             shutil.copy(env["log"], run_dir / "server.log")
     except EnvError as exc:

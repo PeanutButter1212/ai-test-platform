@@ -12,6 +12,7 @@ You type requirements
 → AI writes tests from the rules (it never sees the code at this stage)
 → a second AI checks each test blind (it works out the answers without seeing them)
 → code runs every test on a fresh copy of the shop and decides pass/fail
+→ every test runs 3 times; if the results change, it is UNSTABLE (a human looks)
 → for each failure, AI reads the rules + the failure + the code:
      code is wrong → BUG          (with the line and a suggested fix)
      test is wrong → BAD_TEST     (AI fixes its own test and reruns it)
@@ -122,4 +123,5 @@ AI answers are saved in `llm_cache/`, so repeating the same request costs nothin
 | `evidence/ai-judge/`           | AI judge on the real tests and on 3 broken ones |
 | `evidence/review/`             | Qwen (7B, 14B) vs Gemini as reviewer            |
 | `evidence/repair/`             | AI fixing tests I broke on purpose              |
+| `evidence/flaky/`              | Simulated random checkout failures marked UNSTABLE, not BUG |
 | `evidence/v1/`, `evidence/v2/` | Raw results before and after idea 1             |

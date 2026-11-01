@@ -4,6 +4,7 @@
 tag) is checked out into a temporary worktree first.
 """
 
+import os
 import socket
 import subprocess
 import sys
@@ -53,10 +54,13 @@ def shop_instance(ref: str | None = None, startup_timeout: float = 15):
         port = _free_port()
         log_path = tmp / "server.log"
         log = log_path.open("w")
+        env = {"SHOP_DB": str(tmp / "shop.db"), "PATH": "/usr/bin:/bin"}
+        app = "shop.app:app"
+        if os.environ.get("SHOP_FLAKY"):  # simulated instability, see shop/chaos.py
+            env["SHOP_FLAKY"], app = os.environ["SHOP_FLAKY"], "shop.chaos:app"
         proc = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "shop.app:app", "--port", str(port)],
-            cwd=workdir, stdout=log, stderr=subprocess.STDOUT,
-            env={"SHOP_DB": str(tmp / "shop.db"), "PATH": "/usr/bin:/bin"},
+            [sys.executable, "-m", "uvicorn", app, "--port", str(port)],
+            cwd=workdir, stdout=log, stderr=subprocess.STDOUT, env=env,
         )
         base_url = f"http://127.0.0.1:{port}"
         try:

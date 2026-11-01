@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT))
 from tester import generator, report, requirements, review, runner  # noqa: E402
 from tester.llm import LOG_PATH, LLM, LLMError  # noqa: E402
 
-ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "🔧", "NEEDS_REVIEW": "🙋", "ENV_ERROR": "🔌"}
+ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "🔧", "NEEDS_REVIEW": "🙋", "UNSTABLE": "⚠️", "ENV_ERROR": "🔌"}
 
 st.set_page_config(page_title="AI Test Platform", page_icon="🧪", layout="wide")
 state = st.session_state
@@ -234,7 +234,7 @@ if "approved" in state:
     st.header("4 · Run against the shop")
     st.caption("Every test runs on a fresh copy of the shop; code decides pass or fail. For each failure the AI reads "
                "the requirements and the shop's code: code wrong = BUG, test wrong = BAD_TEST (the AI repairs it), "
-               "unsure = NEEDS_REVIEW.")
+               "unsure = NEEDS_REVIEW. Every test runs 3 times; if the runs disagree it is UNSTABLE.")
     if st.button("Run tests", type="primary"):
         offset = log_offset()
         with st.spinner("Starting the shop, running every test and judging failures…"):
@@ -269,6 +269,9 @@ if "approved" in state:
                                     f"{diag['summary']}  \nat `{where}`")
                         st.code(diag["suggested_fix"] or "(remove the quoted line)", language="python")
             for r in results:
+                if r["verdict"] == "UNSTABLE":
+                    st.warning(f"⚠️ **{r['test']['id']}** {r['test']['title']}: gave different results when rerun "
+                               f"({report.attempt_marks(r['attempts'])}), so it was not judged. A human should look.")
                 if r["verdict"] == "NEEDS_REVIEW":
                     st.warning(f"🙋 **{r['test']['id']}** {r['test']['title']}: needs a human, {r['reason']}.")
                 for a in r.get("repairs", []):
@@ -277,6 +280,7 @@ if "approved" in state:
                             f"(attempt {a['attempt']}: {a['outcome']}).  \n{a.get('diagnosis') or a.get('error', '')}"
                             + "".join(f"  \n`{c}`" for c in changes))
             st.dataframe(pd.DataFrame([{"verdict": f"{ICONS[r['verdict']]} {r['verdict']}", "id": r["test"]["id"],
+                                        "attempts": report.attempt_marks(r["attempts"]),
                                         "title": r["test"]["title"]} for r in results]),
                          hide_index=True, width="stretch")
         with st.expander("Full report (also saved to disk)"):
