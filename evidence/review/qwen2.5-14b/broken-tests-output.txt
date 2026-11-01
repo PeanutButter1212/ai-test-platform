@@ -1,0 +1,6 @@
+WRONG R1-02 $100 no discount: disagree
+  step 2 tier_discount: test expects '0.00', reviewer predicts '10.00' (According to rule R1, a tier discount is applied if the subtotal is $100.00 or more. The discount is 10% off the subtotal.)
+WRONG R5-02 LESS5 $10 off: disagree
+  step 3 coupon_discount: test expects '10.00', reviewer predicts '5.00' (The coupon 'LESS5' provides a flat discount of $5.00 off the subtotal. Since the cart has only one item with a subtotal of $19.50, the coupon discount will be $5.00.)
+WRONG R3-02 error code: disagree
+  step 2 detail.code: test expects 'OUT_OF_STOCK', reviewer predicts 'QTY_RANGE' (The error code for a quantity outside the allowed range is QTY_RANGE.)

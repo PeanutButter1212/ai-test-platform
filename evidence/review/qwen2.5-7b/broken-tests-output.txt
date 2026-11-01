@@ -1,0 +1,6 @@
+WRONG R1-02 $100 no discount: disagree
+  step 2 tier_discount: test expects '0.00', reviewer predicts '10.00' (Since the subtotal is $100.00, which meets the requirement for the spend discount (R1), a 10% discount is applied. The tier_discount is calculated as 10% of $100.00, which is $10.00.)
+WRONG R5-02 LESS5 $10 off: disagree
+  step 3 coupon_discount: test expects '10.00', reviewer predicts '5.00' (The coupon 'LESS5' takes $5.00 off the subtotal. The initial subtotal is $19.50, so the coupon discount is $5.00.)
+WRONG R3-02 error code: disagree
+  step 2 detail.code: test expects 'OUT_OF_STOCK', reviewer predicts 'QTY_RANGE' (The request to add 21 units of product_id 1 (Wireless Earbuds) exceeds the stock limit of 50, so it should return a 422 status code, which corresponds to 'QTY_RANGE' in the error codes.)

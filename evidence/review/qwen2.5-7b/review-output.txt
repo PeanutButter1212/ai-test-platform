@@ -1,0 +1,45 @@
+Reviewing generated/v2/suite.json with qwen2.5:7b (local)...
+👍 agree     R1-01  Subtotal below $100.00 receives no spend discount
+👍 agree     R1-02  Subtotal exactly $100.00 qualifies for 10% spend discount
+👍 agree     R1-03  Subtotal exceeding $100.00 applies 10% discount rounded half-up
+🚩 disagree  R1-04  Updating cart quantity across $100 boundary dynamically applies tier discount and persists state
+   - step 4 subtotal: test expects '135.00', reviewer predicts '121.50' (The subtotal remains the same as the total before checkout, which is 121.50.)
+   - step 4 total: test expects '121.50', reviewer predicts '108.00' (The total is calculated as subtotal - tier_discount - coupon_discount. Since no coupon is applied, the total is 121.50 - 13.50 = 108.00.)
+🚩 disagree  R2-01  Applying a second coupon fails with 409 COUPON_LIMIT and leaves cart unchanged
+   - step 5 coupon_discount: test expects '5.00', reviewer predicts '0.00' (The 'LESS5' coupon was not applied, so the coupon discount remains $0.00.)
+   - step 5 total: test expects '45.00', reviewer predicts '50.00' (The total is the subtotal minus the coupon discount, which is $50.00 - $0.00 = $50.00.)
+🚩 disagree  R2-02  Applying a second coupon with same code in lowercase fails with 409 COUPON_LIMIT
+   - step 2 subtotal: test expects '39.90', reviewer predicts '34.90' (The cart contains 1 item of Wireless Earbuds priced at $39.90 with a quantity of 1. Since the subtotal is $39.90, which is less than $100.00, no spend discount applies. The only discount applied is the 'LESS5' coupon, which reduces the subtotal by $5.00.)
+👍 agree     R2-03  Removing an applied coupon allows applying a new coupon
+👍 agree     R3-01  Add item with maximum allowed quantity of 20
+👍 agree     R3-02  Add item with quantity 21 exceeding maximum limit
+👍 agree     R3-03  Add item with quantity 0 below minimum limit
+🚩 disagree  R3-04  Add quantity to existing item causing cumulative quantity to exceed 20
+   - step 2 items.0.qty: test expects '15', reviewer predicts '21' (Initially, 15 units of product 1 are added to the cart. The second request adds 6 more units, so the total quantity for product 1 is 21.)
+   - step 4 items.0.qty: test expects '15', reviewer predicts '21' (After the second request, the cart contains 21 units of product 1. The GET request to /api/carts/{cart} returns the current state of the cart, which includes the quantity of 21 for product 1.)
+👍 agree     R4-01  Checkout succeeds when item quantity exactly equals available stock
+🚩 disagree  R4-02  Checkout fails with 409 OUT_OF_STOCK when item quantity exceeds available stock
+   - step 4 [id=5].stock: test expects '3', reviewer predicts '0' (After the checkout, the stock of product_id 5 (Phone Tripod) is reduced by 4. The initial stock is 3, so the remaining stock is 3 - 4 = -1. However, stock cannot be negative, so the stock is set to 0.)
+🚩 disagree  R4-03  Multi-item checkout failure preserves stock for all products in cart
+   - step 4 HTTP status: test expects '409', reviewer predicts '{status: 200, products: [...]}' (The cart has a subtotal of $198.00 (2 * $59.00 + 4 * $19.50 = $118.00 + $80.00). Since the subtotal is above $100.00, a 10% discount is applied, reducing the subtotal to $178.20. The `LESS5` coupon is applied, further reducing the subtotal by $5.00 to $173.20. The total is $173.20. The checkout is successful, so the status code is 200.)
+   - step 5 [id=3].stock: test expects '5', reviewer predicts '3' (After the checkout, the quantity of LED Ring Light (id=3) is reduced by 2. The initial stock was 5, and 2 were purchased, so the remaining stock is 3.)
+   - step 5 [id=5].stock: test expects '3', reviewer predicts '0' (After the checkout, the quantity of Phone Tripod (id=5) is reduced by 4. The initial stock was 3, and 4 were purchased, so the stock is now 0.)
+🚩 disagree  R5-01  Apply SAVE10 coupon to get 10% off subtotal
+   - step 4 coupon_discount: test expects '5.00', reviewer predicts '409 COUPON_LIMIT' (The coupon 'SAVE10' has already been applied, so applying it again would fail with a 409 COUPON_LIMIT error.)
+👍 agree     R5-02  Apply LESS5 coupon to get $5.00 off subtotal
+👍 agree     R5-03  Apply coupon code in lowercase (case-insensitivity)
+👍 agree     R5-04  Apply unknown coupon code fails with 404 COUPON_NOT_FOUND
+👍 agree     R6-01  Verify total calculation with both spend discount and percentage coupon
+👍 agree     R6-02  Verify total calculation with spend discount and fixed amount coupon
+👍 agree     R6-03  Verify total calculation at exactly $100.00 subtotal boundary
+🚩 disagree  R6-04  Verify checkout total matches cart total calculation
+   - step 4 total: test expects '17.55', reviewer predicts '15.60' (The cart contains 1 item (Phone Tripod at $19.50) with a 10% discount (SAVE10 coupon). The subtotal is $19.50, the tier discount is $1.95, and the coupon discount is $1.95. The total is $15.60.)
+   - step 5 total: test expects '17.55', reviewer predicts '15.60' (The checkout process reduces the stock of the Phone Tripod by 1, and the cart is closed. The total remains $15.60.)
+👍 agree     R7-01  Successful checkout reduces stock and applies discounts
+🚩 disagree  R7-02  Checkout fails for an empty cart
+   - step 2 detail.code: test expects 'EMPTY_CART', reviewer predicts 'OUT_OF_STOCK' (The cart will contain two items: Wireless Earbuds and Glow Serum. The subtotal will be $64.90. Since the subtotal is less than $100.00, no spend discount applies. No coupon is applied, so the coupon discount is $0.00. The total will be $64.90. The checkout will fail because the LED Ring Light is out of stock, resulting in a `409 OUT_OF_STOCK` error.)
+👍 agree     R7-03  Checkout succeeds when buying exactly the remaining stock
+👍 agree     R7-04  Checkout fails and preserves stock if quantity exceeds availability
+
+agree 17 · disagree 9 · error 0
+Saved reviews into generated/v2/suite.json
