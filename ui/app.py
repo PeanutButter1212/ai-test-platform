@@ -52,14 +52,28 @@ def count_calls(step: str, offset: int):
     """Count the AI calls a step made since `offset` in the raw call log, by source (live/cache/failed)."""
     with LOG_PATH.open() as f:
         f.seek(offset)
-        sources = [json.loads(line).get("source") for line in f if line.strip()]
-    state.ai_calls[step] = {src: sources.count(src) for src in ("live", "cache", "failed") if src in sources}
+        state.ai_calls[step] = [json.loads(line) for line in f if line.strip()]
 
 
 def ai_note(step: str):
     calls = state.ai_calls.get(step)
-    if calls:
-        st.caption("AI calls · " + " · ".join(f"{n} {'cached' if src == 'cache' else src}" for src, n in calls.items()))
+    if not calls:
+        return
+    sources = [c.get("source") for c in calls]
+    st.caption("AI calls · " + " · ".join(f"{sources.count(src)} {'cached' if src == 'cache' else src}"
+                                          for src in ("live", "cache", "failed") if src in sources))
+    with st.expander("See prompts sent to the AI"):
+        for c in calls:
+            st.markdown(f"**{c.get('purpose', '')}** · `{c.get('model') or ', '.join(c.get('models_tried', []))}`"
+                        f" · {c.get('source')} · {c.get('time', '')}")
+            if c.get("system"):
+                st.caption("System instruction")
+                st.code(c["system"], language=None, wrap_lines=True)
+            st.caption("Prompt")
+            st.code(c.get("prompt", ""), language=None, wrap_lines=True)
+            st.caption("Response" if "response" in c else "Error")
+            st.code(c.get("response") or c.get("error", ""), language="json" if "response" in c else None,
+                    wrap_lines=True)
 
 
 def describe(test: dict) -> str:
