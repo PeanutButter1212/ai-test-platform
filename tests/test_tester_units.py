@@ -5,6 +5,7 @@ from pathlib import Path
 from tester.dsl import Check, TestCase
 from tester.engine import MISSING, evaluate, resolve
 from tester.lint import lint
+from tester.report import changed_checks
 from tester.requirements import EXAMPLE_SPEC, compose, example_rules
 from tester.review import _blind_steps, _same, _usable
 from tester.runner import classify
@@ -96,3 +97,9 @@ def test_review_comparison():
 def test_example_rules_rebuild_the_example_spec():
     # The UI composes specs from rules; unchanged rules must reproduce the file exactly (and hit the LLM cache).
     assert compose(example_rules()) == EXAMPLE_SPEC.read_text()
+
+
+def test_changed_checks_lists_only_edited_expectations():
+    before = {"steps": [{"checks": [{"field": "total", "value": "90.00"}, {"field": "subtotal", "value": "100.00"}]}]}
+    after = {"steps": [{"checks": [{"field": "total", "value": "90.00"}, {"field": "subtotal", "value": "99.00"}]}]}
+    assert changed_checks(before, after) == ["step 1 subtotal: 100.00 → 99.00"]

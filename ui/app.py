@@ -236,7 +236,14 @@ if "approved" in state:
                         st.markdown(f"🤖 **AI suggestion — advice only, needs developer review**  \n"
                                     f"{diag['summary']}  \nat `{where}`")
                         st.code(diag["suggested_fix"] or "(remove the quoted line)", language="python")
+            for r in results:
+                for a in r.get("repairs", []):
+                    changes = report.changed_checks(a["before"], a["after"]) if a.get("after") else []
+                    st.warning(f"🔧 **{r['test']['id']}** failed on the known-good shop, so the AI repaired its own "
+                               f"test (attempt {a['attempt']}: {a['outcome']}).  \n{a.get('diagnosis') or a.get('error', '')}"
+                               + "".join(f"  \n`{c}`" for c in changes))
             st.dataframe(pd.DataFrame([{"verdict": f"{ICONS[r['verdict']]} {r['verdict']}", "id": r["test"]["id"],
+                                        "repaired": "🔧" if "repairs" in r else "",
                                         "title": r["test"]["title"]} for r in results]),
                          hide_index=True, width="stretch")
         with st.expander("Full report (also saved to disk)"):

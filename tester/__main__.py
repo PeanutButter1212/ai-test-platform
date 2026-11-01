@@ -53,7 +53,8 @@ def cmd_review(args):
 
 
 def cmd_run(args):
-    run_dir = runner.run_suite(args.suite, args.target, args.baseline, triage=not args.no_triage)
+    run_dir = runner.run_suite(args.suite, args.target, args.baseline, triage=not args.no_triage,
+                               repair=not args.no_repair)
     data = json.loads((run_dir / "results.json").read_text())
     if data["status"] == "ENV_ERROR":
         print(f"🔌 Environment failed, no tests judged:\n{data['env_error']}")
@@ -63,6 +64,10 @@ def cmd_run(args):
                       for c in s["checks"] if not c["passed"]]
             detail = f"  → {failed[0]['field']}: expected {failed[0]['expected']}, got {failed[0]['actual']}" if failed else ""
             print(f"{ICONS[r['verdict']]} {r['verdict']:9} {r['test']['id']:6} {r['test']['title']}{detail}")
+            for a in r.get("repairs", []):
+                changes = "; ".join(report.changed_checks(a["before"], a["after"])) if a.get("after") else ""
+                print(f"   🔧 repair {a['attempt']}: {a.get('decision', 'error')} → {a['outcome']}"
+                      f"{' (' + changes + ')' if changes else ''}")
             diag = r.get("triage", {}).get("diagnosis")
             if diag:
                 loc = r["triage"]["location"]
@@ -94,6 +99,7 @@ def main():
     r.add_argument("--target", default=None, help="git ref to test (default: working tree)")
     r.add_argument("--baseline", default="shop-clean", help="known-good git ref")
     r.add_argument("--no-triage", action="store_true", help="skip AI diagnosis of failures")
+    r.add_argument("--no-repair", action="store_true", help="do not let the AI repair tests that fail on the baseline")
     r.set_defaults(func=cmd_run)
 
     args = parser.parse_args()

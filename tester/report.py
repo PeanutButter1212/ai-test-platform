@@ -68,6 +68,28 @@ def _raw_steps(run: dict) -> str:
     return "".join(out)
 
 
+def changed_checks(before: dict, after: dict) -> list[str]:
+    """Expectations the AI changed while repairing a test, e.g. 'step 2 tier_discount: 0.00 → 10.00'."""
+    def values(test):
+        return {(n, c["field"]): c["value"] for n, s in enumerate(test["steps"], 1) for c in s["checks"]}
+    old, new = values(before), values(after)
+    return [f"step {n} {field}: {old.get((n, field), '—')} → {new.get((n, field), '—')}"
+            for n, field in sorted(old.keys() | new.keys()) if old.get((n, field)) != new.get((n, field))]
+
+
+def _repairs(history: list | None) -> str:
+    if not history:
+        return ""
+    rows = "".join(
+        f"<li>Attempt {a['attempt']}: <b>{escape(a.get('decision', 'error'))}</b> → {escape(a['outcome'])}"
+        f"<br>{escape(a.get('diagnosis') or a.get('error', ''))}"
+        + "".join(f"<br><code>{escape(c)}</code>" for c in
+                  (changed_checks(a["before"], a["after"]) if a.get("after") else []))
+        + "</li>" for a in history)
+    return (f"<div class='ai'><b>🔧 Failed on the known-good baseline, so the AI repaired its own test</b>"
+            f"<ol>{rows}</ol><small>The original test was wrong; the verdict is for the repaired test.</small></div>")
+
+
 def render(run_dir: Path) -> Path:
     data = json.loads((run_dir / "results.json").read_text())
     counts = Counter(r["verdict"] for r in data["results"])
@@ -79,7 +101,8 @@ def render(run_dir: Path) -> Path:
                      f" · baseline <b>{escape(data['baseline']['ref'])}</b> @ {escape(data['baseline']['commit'])}"
                      f" · {data['tests']} tests · suite {escape(data['suite'])}</div>")
         parts.append("<div class='tiles'>" + "".join(
-            f"<div class='tile {v}'><b>{counts.get(v, 0)}</b>{LABELS[v]}</div>" for v in ORDER) + "</div>")
+            f"<div class='tile {v}'><b>{counts.get(v, 0)}</b>{LABELS[v]}</div>" for v in ORDER)
+            + f"<div class='tile'><b>{sum('repairs' in r for r in data['results'])}</b>Repaired by AI</div></div>")
         for verdict in ORDER:
             group = [r for r in data["results"] if r["verdict"] == verdict]
             if not group:
@@ -92,7 +115,9 @@ def render(run_dir: Path) -> Path:
                 error = f"<p class='fail'>{escape(shown['error'])}</p>" if shown["error"] else ""
                 parts.append(
                     f"<details {'open' if verdict == 'BUG' else ''}><summary><span class='tag {verdict}'>{verdict}</span>"
-                    f"{escape(t['id'])} · {escape(t['title'])} <small>({escape(t['kind'])})</small></summary>"
+                    f"{escape(t['id'])} · {escape(t['title'])} <small>({escape(t['kind'])})</small>"
+                    f"{' 🔧 repaired' if 'repairs' in r else ''}</summary>"
+                    f"{_repairs(r.get('repairs'))}"
                     f"<p>Checks on the {where}:</p>{error}{_checks_table(shown)}{_triage(r.get('triage'))}"
                     f"<details><summary>Raw requests and responses</summary>{_raw_steps(shown)}</details></details>")
     html = (f"<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
