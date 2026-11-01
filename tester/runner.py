@@ -1,10 +1,14 @@
-"""Run a suite against the target and the known-good baseline, then classify each test.
+"""Run a suite against the shop and decide, for every failing test, who is at fault.
 
-Verdicts (decided by code, never by the LLM):
-  PASS       passes on baseline and target
-  BUG        passes on baseline, fails on target  -> suspected defect in the target
-  BAD_TEST   fails on the known-good baseline     -> the test itself is wrong
-  ENV_ERROR  a request could not be completed     -> no conclusion about app or test
+Code decides pass/fail for every check. For each failing test an AI judge reads the
+requirements, the failed checks and the source code, and blames the code, the test,
+or neither:
+
+  PASS          every check passed
+  BUG           AI blames the code, and the code it quotes really is in that file
+  BAD_TEST      AI blames the test; the AI rewrites it and the rewrite passes
+  NEEDS_REVIEW  AI is unsure, quotes code that is not there, or cannot repair the test
+  ENV_ERROR     a request could not be completed -> no conclusion about app or test
 """
 
 import json
@@ -23,63 +27,52 @@ ROOT = Path(__file__).resolve().parent.parent
 RUNS_DIR = ROOT / "runs"
 
 
-def classify(baseline: dict, target: dict) -> str:
-    if baseline["error"] or target["error"]:
-        return "ENV_ERROR"
-    if not baseline["passed"]:
-        return "BAD_TEST"
-    return "PASS" if target["passed"] else "BUG"
+def judge_failure(test: TestCase, record: dict, spec: str, env: dict, llm: LLM) -> tuple[str, TestCase, dict, dict]:
+    """AI judge for one failing test. Returns (verdict, final test, final record, details)."""
+    details = {"triage": diagnose({"test": test.model_dump(), "target": record}, spec, Path(env["workdir"]), llm)}
+    diag, location = details["triage"].get("diagnosis"), details["triage"].get("location", {})
+    if diag is None:
+        return "NEEDS_REVIEW", test, record, {**details, "reason": "the AI judge failed"}
+    if diag["culprit"] == "code":
+        if location.get("verified"):
+            return "BUG", test, record, details
+        return "NEEDS_REVIEW", test, record, {**details, "reason": "the AI blamed code that is not in the file"}
+    if diag["culprit"] == "test":
+        fixed, fixed_record, history = repair_test(test, record, spec, env["base_url"], llm,
+                                                   diagnosis=diag["explanation"])
+        details["repairs"] = history
+        if fixed_record["passed"]:
+            return "BAD_TEST", fixed, fixed_record, details
+        return "NEEDS_REVIEW", test, record, {**details, "reason": "the AI blamed the test but could not fix it"}
+    return "NEEDS_REVIEW", test, record, {**details, "reason": "the AI is not sure whether the code or the test is wrong"}
 
 
-def _run_all(tests, ref, run_dir, label, repair_with=None):
-    """Run every test on one shop instance. With repair_with (the spec), tests that fail
-    here are sent back to the AI and re-run on this same instance."""
-    repairs = {}
-    with shop_instance(ref) as env:
-        results = {t.id: run_test(t, env["base_url"]) for t in tests}
-        if repair_with:
-            llm = LLM()
-            for i, test in enumerate(tests):
-                r = results[test.id]
-                if not r["passed"] and not r["error"]:
-                    tests[i], results[test.id], repairs[test.id] = repair_test(
-                        test, r, repair_with, env["base_url"], llm)
-        shutil.copy(env["log"], run_dir / f"server-{label}.log")
-        return {"ref": env["ref"], "commit": env["commit"]}, results, repairs
-
-
-def run_suite(suite_path: str, target_ref: str | None = None, baseline_ref: str = "shop-clean",
-              triage: bool = True, repair: bool = True) -> Path:
+def run_suite(suite_path: str, target_ref: str | None = None) -> Path:
     suite = json.loads(Path(suite_path).read_text())
     tests = [TestCase.model_validate(e["test"]) for e in suite["accepted"]]
+    spec = Path(suite["spec"]).read_text()
     run_dir = RUNS_DIR / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir(parents=True)
 
     record = {"suite": suite_path, "started": datetime.now().isoformat(timespec="seconds"),
               "tests": len(tests), "status": "complete", "results": []}
-    spec = Path(suite["spec"]).read_text()
     try:
-        # Baseline first: wrong tests are found (and repaired) before the target is judged.
-        record["baseline"], base_results, repairs = _run_all(tests, baseline_ref, run_dir, "baseline",
-                                                             repair_with=spec if repair else None)
-        record["target"], target_results, _ = _run_all(tests, target_ref, run_dir, "target")
+        with shop_instance(target_ref) as env:
+            record["target"] = {"ref": env["ref"], "commit": env["commit"]}
+            llm = LLM()
+            for test in tests:
+                r = run_test(test, env["base_url"])
+                if r["error"]:
+                    verdict, details = "ENV_ERROR", {}
+                elif r["passed"]:
+                    verdict, details = "PASS", {}
+                else:
+                    verdict, test, r, details = judge_failure(test, r, spec, env, llm)
+                record["results"].append({"test": test.model_dump(), "verdict": verdict, "target": r, **details})
+            shutil.copy(env["log"], run_dir / "server.log")
     except EnvError as exc:
         # The environment never became healthy: report that, and judge no test.
-        record["status"] = "ENV_ERROR"
-        record["env_error"] = str(exc)
-    else:
-        for test in tests:
-            b, t = base_results[test.id], target_results[test.id]
-            result = {"test": test.model_dump(), "verdict": classify(b, t), "baseline": b, "target": t}
-            if test.id in repairs:
-                result["repairs"] = repairs[test.id]
-            record["results"].append(result)
-        if triage:
-            # Diagnose suspected bugs against the source that was actually tested.
-            source_root = ROOT if target_ref is None else None
-            for r in record["results"]:
-                if r["verdict"] == "BUG" and source_root:
-                    r["triage"] = diagnose(r, spec, source_root)
+        record.update(status="ENV_ERROR", env_error=str(exc), results=[])
 
     (run_dir / "results.json").write_text(json.dumps(record, indent=2, ensure_ascii=False))
     return run_dir

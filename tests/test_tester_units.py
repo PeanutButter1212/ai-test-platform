@@ -8,7 +8,7 @@ from tester.lint import lint
 from tester.report import changed_checks
 from tester.requirements import EXAMPLE_SPEC, compose, example_rules
 from tester.review import _blind_steps, _same, _usable
-from tester.runner import classify
+from tester import runner
 from tester.triage import Diagnosis, locate
 
 RULES = {"R1", "R2"}
@@ -53,14 +53,22 @@ def test_lint_rejects_problems():
     assert any("never checks anything" in p for p in problems)
 
 
-def test_classify():
-    ok, fail = {"passed": True, "error": None}, {"passed": False, "error": None}
-    err = {"passed": False, "error": "ConnectError"}
-    assert classify(ok, ok) == "PASS"
-    assert classify(ok, fail) == "BUG"
-    assert classify(fail, fail) == "BAD_TEST"
-    assert classify(fail, ok) == "BAD_TEST"
-    assert classify(ok, err) == "ENV_ERROR"
+def test_judge_failure_maps_ai_verdicts(monkeypatch):
+    test = TestCase(id="R1-01", rule="R1", kind="normal", title="t", steps=[])
+    failing = {"passed": False, "error": None, "steps": []}
+    env = {"workdir": ".", "base_url": "http://shop"}
+
+    def judge(culprit, verified=True, repaired=True):
+        triage = {"diagnosis": {"culprit": culprit, "explanation": "why"}, "location": {"verified": verified}}
+        monkeypatch.setattr(runner, "diagnose", lambda *a: triage)
+        monkeypatch.setattr(runner, "repair_test", lambda t, r, *a, **k: (t, {**r, "passed": repaired}, []))
+        return runner.judge_failure(test, failing, "spec", env, llm=None)[0]
+
+    assert judge("code") == "BUG"
+    assert judge("code", verified=False) == "NEEDS_REVIEW"   # quoted code is not in the file
+    assert judge("test") == "BAD_TEST"                       # repaired test now passes
+    assert judge("test", repaired=False) == "NEEDS_REVIEW"
+    assert judge("unclear") == "NEEDS_REVIEW"
 
 
 def test_locate_verifies_quotes(tmp_path):

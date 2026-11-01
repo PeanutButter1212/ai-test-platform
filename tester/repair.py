@@ -1,11 +1,10 @@
-"""Self-repair for wrong tests: a test that fails on the known-good baseline goes back to the AI.
+"""Self-repair for wrong tests: when the AI judge blames the test, the test goes back to the AI.
 
-The AI gets the rule, its test and the baseline's actual responses, and must
-decide: either the test misread the rule (rewrite it), or the test follows the
-rule and the baseline disagrees (keep it and flag for a human). A rewrite is
-linted and re-run on the baseline; after MAX_ATTEMPTS it is left for a human.
-Copying the baseline's values without a rule to justify them is not allowed,
-because that would make every test pass by definition.
+The AI gets the rule, its test, the application's actual responses and the judge's
+diagnosis, and must decide: either the test misread the rule (rewrite it), or the
+test follows the rule after all (keep it and leave it for a human). A rewrite is
+linted and re-run; after MAX_ATTEMPTS it is left for a human. A rewrite must be
+justified by a rule, so the AI cannot simply copy whatever the application returned.
 """
 
 import json
@@ -20,23 +19,24 @@ from .llm import LLM, LLMError
 
 MAX_ATTEMPTS = 2
 
-SYSTEM = """You are a senior QA engineer fixing your own test. The application version it ran
-against is known to be correct. Decide honestly whether the test or the requirement is at fault.
+SYSTEM = """You are a senior QA engineer fixing your own test. A reviewer who read the application code
+judged that the test, not the code, is wrong. Decide honestly whether the test or the requirement is at fault.
 Only change an expectation when the rule, read carefully, supports the new value."""
 
 PROMPT = """Requirements:
 
 {spec}
 
-Your test {test_id} failed on the known-good version of the application.
+Your test {test_id} failed on the application.
+The reviewer's diagnosis: {diagnosis}
 
 Test (JSON):
 {test}
 
-Failed checks (expected by the test vs actual on the known-good version):
+Failed checks (expected by the test vs actual):
 {failed}
 
-Requests and responses on the known-good version:
+Requests and responses:
 {steps}
 
 If the test misread or over-assumed the requirements, choose "rewrite" and return the corrected
@@ -60,14 +60,15 @@ def _failure_context(record: dict) -> tuple[str, str]:
     return "\n".join(failed), steps
 
 
-def repair_test(test: TestCase, record: dict, spec: str, base_url: str, llm: LLM) -> tuple[TestCase, dict, list]:
-    """Try to fix one test that failed on the baseline. Returns (final test, final record, attempt history)."""
+def repair_test(test: TestCase, record: dict, spec: str, base_url: str, llm: LLM,
+                diagnosis: str) -> tuple[TestCase, dict, list]:
+    """Try to fix one wrong test. Returns (final test, final record, attempt history)."""
     rule_ids = parse_rule_ids(spec)
     history = []
     for attempt in range(1, MAX_ATTEMPTS + 1):
         failed, steps = _failure_context(record)
         prompt = PROMPT.format(spec=spec, test_id=test.id, test=test.model_dump_json(indent=1, exclude_none=True),
-                               failed=failed, steps=steps)
+                               failed=failed, steps=steps, diagnosis=diagnosis)
         entry = {"attempt": attempt, "before": test.model_dump()}
         history.append(entry)
         try:
@@ -89,7 +90,7 @@ def repair_test(test: TestCase, record: dict, spec: str, base_url: str, llm: LLM
             entry["lint"] = problems
             continue
         test, record = candidate, run_test(candidate, base_url)
-        entry["outcome"] = "passes on baseline" if record["passed"] else "still fails on baseline"
+        entry["outcome"] = "passes" if record["passed"] else "still fails"
         if record["passed"] or record["error"]:
             break
     return test, record, history
