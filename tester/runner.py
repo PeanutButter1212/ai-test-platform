@@ -26,6 +26,7 @@ from .engine import run_test
 from .env import EnvError, shop_instance
 from .llm import LLM
 from .repair import repair_test
+from .requirements import is_example
 from .triage import diagnose
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -88,7 +89,7 @@ def run_suite(suite_path: str, target_ref: str | None = None) -> Path:
     try:
         with shop_instance(target_ref) as env:
             record["target"] = {"ref": env["ref"], "commit": env["commit"]}
-            llm = LLM()
+            llm = LLM(cache=is_example(spec))
             for test in tests:
                 # Never trust a single run, pass or fail: repeat it, and keep every attempt.
                 attempts = [run_test(test, env["base_url"]) for _ in range(1 + RERUNS)]

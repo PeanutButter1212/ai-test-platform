@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from .dsl import TestSuite
 from .lint import lint, parse_rule_ids
 from .llm import LLM, LLMError
+from .requirements import is_example
 
 SYSTEM = """You are a senior QA engineer. You design API tests that find real defects.
 Only expect values that the requirements state or that follow from them by arithmetic.
@@ -35,7 +36,7 @@ and check it is what the rules say, not just the immediate response."""
 def generate(spec_path: str, rules: list[str] | None = None, llm: LLM | None = None) -> dict:
     spec = Path(spec_path).read_text()
     rule_ids = parse_rule_ids(spec)
-    llm = llm or LLM()
+    llm = llm or LLM(cache=is_example(spec))
     accepted, rejected, failures = [], [], []
 
     for rule in sorted(rules or rule_ids, key=lambda r: int(r[1:])):

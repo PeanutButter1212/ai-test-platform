@@ -1,7 +1,7 @@
 """Second-model review: a different model checks each generated test before it runs.
 
-Gemini 3.5 Flash writes the tests; a different model (Gemini 3 Flash by
-default, or a local Ollama model) independently predicts every expected value.
+Gemini 3.5 Flash writes the tests; a different model (Gemini 3 Flash)
+independently predicts every expected value.
 The review is blind: the reviewer never sees the test's expected values or the
 reasons given for them, because a model shown an answer tends to agree with it.
 Our code compares the two answers; mismatches are flagged for the human
@@ -15,6 +15,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ValidationError, create_model
 
 from .llm import LLM, LLMError
+from .requirements import is_example
 
 # A different model from the generator (gemini-3.5-flash), so it does not share its exact blind spots.
 DEFAULT_GEMINI_MODEL = "gemini-3-flash-preview"
@@ -123,7 +124,7 @@ def review_suite(suite_path: str, llm: LLM | None = None, on_result=None) -> dic
     path = Path(suite_path)
     suite = json.loads(path.read_text())
     spec = Path(suite["spec"]).read_text()
-    llm = llm or LLM(model=DEFAULT_GEMINI_MODEL)
+    llm = llm or LLM(model=DEFAULT_GEMINI_MODEL, cache=is_example(spec))
     for entry in suite["accepted"]:
         entry["review"] = review_test(entry["test"], spec, llm)
         if on_result:

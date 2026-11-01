@@ -67,6 +67,11 @@ def system_context() -> str:
     return spec[spec.index("## Seed data"):]
 
 
+def is_example(spec: str) -> bool:
+    """Only the example requirements reuse saved AI answers; anything typed is always live."""
+    return spec == EXAMPLE_SPEC.read_text()
+
+
 def example_rules() -> list[dict]:
     return [{"id": i, "title": t, "text": x} for i, t, x in RULE_LINE.findall(EXAMPLE_SPEC.read_text())]
 

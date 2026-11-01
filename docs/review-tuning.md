@@ -2,7 +2,7 @@
 
 **What it is:** Gemini 3.5 Flash writes the tests. A second model reviews them before they run, and flagged tests go to a human; nothing is fixed automatically.
 
-**Outcome:** I first tried a free, local model (Qwen 2.5 7B and 14B via Ollama). It caught every broken test but raised too many false alarms, even after four rounds of improving the prompt and the comparison (the model itself was not retrained). So the default reviewer is now **Gemini 3 Flash**: 3/3 broken tests caught, 0 false alarms. The local option is kept (`--provider ollama`) for offline use.
+**Outcome:** I first tried a free, local model (Qwen 2.5 7B and 14B via Ollama). It caught every broken test but raised too many false alarms, even after four rounds of improving the prompt and the comparison (the model itself was not retrained). So the default reviewer is now **Gemini 3 Flash**: 3/3 broken tests caught, 0 false alarms. The Ollama code was then removed; the Qwen results stay in `evidence/review/` as the record of the experiment.
 
 **How to check it works:** break 3 correct tests on purpose and see if the reviewer catches them (`scripts/check_reviewer.py`):
 
@@ -76,9 +76,7 @@ The free-tier quota also has to cover review calls. Raw outputs are in `evidence
 
 ```
 python -m tester review                                           # Gemini 3 Flash; writes "review" into each test
-PYTHONPATH=. python scripts/check_reviewer.py gemini gemini-3-flash-preview   # the 3 broken tests
-python -m tester review --provider ollama                         # local alternative (ollama pull qwen2.5:7b)
-PYTHONPATH=. python scripts/check_reviewer.py ollama
+PYTHONPATH=. python scripts/check_reviewer.py                    # the 3 broken tests
 ```
 
 **Raw outputs:** `evidence/review/`. Every prompt and response is in `runs/llm_calls.jsonl`, and the cached responses in `llm_cache/` make reruns instant.

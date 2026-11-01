@@ -1,7 +1,7 @@
 """Command line entry point.
 
     python -m tester generate [--spec PATH] [--rule R1 ...]
-    python -m tester review [--suite PATH] [--provider ollama|gemini] [--model NAME]
+    python -m tester review [--suite PATH] [--model NAME]
     python -m tester run [--suite PATH] [--target REF]
 """
 
@@ -11,7 +11,7 @@ import os
 from collections import Counter
 from pathlib import Path
 
-from . import generator, report, review, runner
+from . import generator, report, requirements, review, runner
 from .llm import LLM
 
 DEFAULT_SPEC = "specs/shop-requirements.md"
@@ -43,9 +43,10 @@ def cmd_review(args):
             for issue in rv["issues"]:
                 print(f"   - {issue}")
 
-    model = args.model or (os.environ.get("REVIEW_MODEL", review.DEFAULT_GEMINI_MODEL) if args.provider == "gemini" else None)
-    llm = LLM(model=model, provider=args.provider)
-    print(f"Reviewing {args.suite} with {llm.model} ({args.provider})...")
+    model = args.model or os.environ.get("REVIEW_MODEL", review.DEFAULT_GEMINI_MODEL)
+    spec = Path(json.loads(Path(args.suite).read_text())["spec"]).read_text()
+    llm = LLM(model=model, cache=requirements.is_example(spec))
+    print(f"Reviewing {args.suite} with {llm.model}...")
     suite = review.review_suite(args.suite, llm, on_result=show)
     counts = Counter(e["review"].get("verdict", "error") for e in suite["accepted"])
     print(f"\nagree {counts['agree']} · disagree {counts['disagree']} · error {counts['error']}")
@@ -92,8 +93,7 @@ def main():
 
     v = sub.add_parser("review", help="blind second opinion on each test from another model")
     v.add_argument("--suite", default=DEFAULT_SUITE)
-    v.add_argument("--provider", choices=["gemini", "ollama"], default="gemini")
-    v.add_argument("--model", default=None, help="model name (default: REVIEW_MODEL for gemini, OLLAMA_MODEL for ollama)")
+    v.add_argument("--model", default=None, help="model name (default: REVIEW_MODEL)")
     v.set_defaults(func=cmd_review)
 
     r = sub.add_parser("run", help="run the suite; an AI judges every failure as bug, bad test or needs review")
