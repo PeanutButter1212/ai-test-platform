@@ -2,7 +2,7 @@
 
     python -m tester generate [--spec PATH] [--rule R1 ...]
     python -m tester review [--suite PATH] [--provider ollama|gemini] [--model NAME]
-    python -m tester run [--suite PATH] [--target REF] [--baseline REF]
+    python -m tester run [--suite PATH] [--target REF]
 """
 
 import argparse
@@ -16,7 +16,7 @@ from .llm import LLM
 
 DEFAULT_SPEC = "specs/shop-requirements.md"
 DEFAULT_SUITE = "generated/v2/suite.json"
-ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "⚠️ ", "ENV_ERROR": "🔌"}
+ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "🔧", "NEEDS_REVIEW": "🙋", "ENV_ERROR": "🔌"}
 
 
 def cmd_generate(args):
@@ -53,23 +53,23 @@ def cmd_review(args):
 
 
 def cmd_run(args):
-    run_dir = runner.run_suite(args.suite, args.target, args.baseline, triage=not args.no_triage,
-                               repair=not args.no_repair)
+    run_dir = runner.run_suite(args.suite, args.target)
     data = json.loads((run_dir / "results.json").read_text())
     if data["status"] == "ENV_ERROR":
         print(f"🔌 Environment failed, no tests judged:\n{data['env_error']}")
     else:
         for r in data["results"]:
-            failed = [c for s in r["target" if r["verdict"] != "BAD_TEST" else "baseline"]["steps"]
-                      for c in s["checks"] if not c["passed"]]
+            failed = [c for s in r["target"]["steps"] for c in s["checks"] if not c["passed"]]
             detail = f"  → {failed[0]['field']}: expected {failed[0]['expected']}, got {failed[0]['actual']}" if failed else ""
-            print(f"{ICONS[r['verdict']]} {r['verdict']:9} {r['test']['id']:6} {r['test']['title']}{detail}")
+            print(f"{ICONS[r['verdict']]} {r['verdict']:12} {r['test']['id']:6} {r['test']['title']}{detail}")
+            if r.get("reason"):
+                print(f"   🙋 needs a human: {r['reason']}")
             for a in r.get("repairs", []):
                 changes = "; ".join(report.changed_checks(a["before"], a["after"])) if a.get("after") else ""
                 print(f"   🔧 repair {a['attempt']}: {a.get('decision', 'error')} → {a['outcome']}"
                       f"{' (' + changes + ')' if changes else ''}")
             diag = r.get("triage", {}).get("diagnosis")
-            if diag:
+            if diag and r["verdict"] != "BAD_TEST":
                 loc = r["triage"]["location"]
                 where = f"{diag['file']}:{loc['line']}" if loc["verified"] else f"{diag['file']} (location unverified)"
                 print(f"   🤖 AI: {diag['summary']}\n      at {where} · suggested fix: {diag['suggested_fix'].strip() or '(remove the quoted line)'}")
@@ -94,12 +94,9 @@ def main():
     v.add_argument("--model", default=None, help="model name (default: REVIEW_MODEL for gemini, OLLAMA_MODEL for ollama)")
     v.set_defaults(func=cmd_review)
 
-    r = sub.add_parser("run", help="run the suite on the target and the known-good baseline")
+    r = sub.add_parser("run", help="run the suite; an AI judges every failure as bug, bad test or needs review")
     r.add_argument("--suite", default=DEFAULT_SUITE)
     r.add_argument("--target", default=None, help="git ref to test (default: working tree)")
-    r.add_argument("--baseline", default="shop-clean", help="known-good git ref")
-    r.add_argument("--no-triage", action="store_true", help="skip AI diagnosis of failures")
-    r.add_argument("--no-repair", action="store_true", help="do not let the AI repair tests that fail on the baseline")
     r.set_defaults(func=cmd_run)
 
     args = parser.parse_args()

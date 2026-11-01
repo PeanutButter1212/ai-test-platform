@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT))
 from tester import generator, report, requirements, review, runner  # noqa: E402
 from tester.llm import LOG_PATH, LLM, LLMError  # noqa: E402
 
-ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "⚠️", "ENV_ERROR": "🔌"}
+ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "🔧", "NEEDS_REVIEW": "🙋", "ENV_ERROR": "🔌"}
 
 st.set_page_config(page_title="AI Test Platform", page_icon="🧪", layout="wide")
 state = st.session_state
@@ -76,10 +76,10 @@ def describe(test: dict) -> str:
 # ---------------------------------------------------------------- sidebar
 with st.sidebar:
     st.title("🧪 AI Test Platform")
-    st.caption("Requirements in, executable tests out. AI writes and reviews; code decides verdicts; "
-               "a human approves.")
+    st.caption("Requirements in, executable tests out. AI writes, reviews and judges; code runs every check; "
+               "a human gets anything the AI is unsure about.")
     st.markdown(f"**Writes tests:** `{LLM().model}`  \n**Reviews tests:** `{review.DEFAULT_GEMINI_MODEL}`  \n"
-                f"**Baseline:** `shop-clean` (known-good)  \n**Target:** working tree")
+                f"**Target:** working tree")
     if st.button("Load example requirements", width="stretch"):
         state.messages = [{"role": "assistant", "content": "Loaded the example shop requirements (R1–R7)."}]
         state.rules, state.questions = requirements.example_rules(), []
@@ -232,13 +232,14 @@ if "suite" in state and state.suite["accepted"]:
 # ---------------------------------------------------------------- 4. run
 if "approved" in state:
     st.header("4 · Run against the shop")
-    st.caption("Each test runs on the known-good baseline and on the current code, each in its own fresh copy "
-               "of the shop. Passing on the baseline but failing on the code = BUG. Failing on the baseline = BAD_TEST.")
+    st.caption("Every test runs on a fresh copy of the shop; code decides pass or fail. For each failure the AI reads "
+               "the requirements and the shop's code: code wrong = BUG, test wrong = BAD_TEST (the AI repairs it), "
+               "unsure = NEEDS_REVIEW.")
     if st.button("Run tests", type="primary"):
         offset = log_offset()
-        with st.spinner("Starting two shop instances and running every test on both…"):
+        with st.spinner("Starting the shop, running every test and judging failures…"):
             state.run_dir = str(runner.run_suite(state.approved))
-        count_calls("run", offset)  # AI repairs and fix suggestions
+        count_calls("run", offset)  # AI judge and test repairs
 
     if "run_dir" in state:
         run_dir = Path(state.run_dir)
@@ -247,7 +248,7 @@ if "approved" in state:
             st.error(f"🔌 The environment failed, so no test was judged:\n\n{data['env_error']}")
         else:
             results = data["results"]
-            cols = st.columns(4)
+            cols = st.columns(len(ICONS))
             for col, verdict in zip(cols, ICONS):
                 col.metric(f"{ICONS[verdict]} {verdict}", sum(r["verdict"] == verdict for r in results))
             ai_note("run")
@@ -268,13 +269,14 @@ if "approved" in state:
                                     f"{diag['summary']}  \nat `{where}`")
                         st.code(diag["suggested_fix"] or "(remove the quoted line)", language="python")
             for r in results:
+                if r["verdict"] == "NEEDS_REVIEW":
+                    st.warning(f"🙋 **{r['test']['id']}** {r['test']['title']}: needs a human, {r['reason']}.")
                 for a in r.get("repairs", []):
                     changes = report.changed_checks(a["before"], a["after"]) if a.get("after") else []
-                    st.warning(f"🔧 **{r['test']['id']}** failed on the known-good shop, so the AI repaired its own "
-                               f"test (attempt {a['attempt']}: {a['outcome']}).  \n{a.get('diagnosis') or a.get('error', '')}"
-                               + "".join(f"  \n`{c}`" for c in changes))
+                    st.info(f"🔧 **{r['test']['id']}**: the AI judged its own test wrong and repaired it "
+                            f"(attempt {a['attempt']}: {a['outcome']}).  \n{a.get('diagnosis') or a.get('error', '')}"
+                            + "".join(f"  \n`{c}`" for c in changes))
             st.dataframe(pd.DataFrame([{"verdict": f"{ICONS[r['verdict']]} {r['verdict']}", "id": r["test"]["id"],
-                                        "repaired": "🔧" if "repairs" in r else "",
                                         "title": r["test"]["title"]} for r in results]),
                          hide_index=True, width="stretch")
         with st.expander("Full report (also saved to disk)"):

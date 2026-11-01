@@ -33,7 +33,7 @@ def _git(*args) -> str:
 
 @contextmanager
 def shop_instance(ref: str | None = None, startup_timeout: float = 15):
-    """Yield {'base_url', 'ref', 'commit', 'log'} for a healthy shop; raise EnvError otherwise."""
+    """Yield {'base_url', 'ref', 'commit', 'log', 'workdir'} for a healthy shop; raise EnvError otherwise."""
     tmp = Path(tempfile.mkdtemp(prefix="shop-env-"))
     workdir = ROOT
     worktree = None
@@ -61,7 +61,8 @@ def shop_instance(ref: str | None = None, startup_timeout: float = 15):
         base_url = f"http://127.0.0.1:{port}"
         try:
             _wait_healthy(base_url, proc, startup_timeout, log_path)
-            yield {"base_url": base_url, "ref": ref or "working-tree", "commit": commit, "log": log_path}
+            yield {"base_url": base_url, "ref": ref or "working-tree", "commit": commit, "log": log_path,
+                   "workdir": workdir}
         finally:
             proc.terminate()
             proc.wait(timeout=5)
