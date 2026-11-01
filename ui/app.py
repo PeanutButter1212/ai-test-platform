@@ -144,11 +144,12 @@ if state.rules:
         spec_path = work_dir() / "spec.md"
         spec_path.write_text(requirements.compose(state.rules))
         offset = log_offset()
+        llm = LLM(cache=requirements.is_example(spec_path.read_text()))
         suite = {"spec": str(spec_path), "model": None, "accepted": [], "rejected": [], "generation_failures": []}
         progress = st.progress(0.0, text="Generating…")
         for n, rule in enumerate(state.rules, 1):
             progress.progress((n - 1) / len(state.rules), text=f"Generating tests for {rule['id']}…")
-            part = generator.generate(str(spec_path), [rule["id"]])
+            part = generator.generate(str(spec_path), [rule["id"]], llm)
             suite["model"] = part["model"]
             for key in ("accepted", "rejected", "generation_failures"):
                 suite[key] += part[key]
@@ -178,8 +179,8 @@ if "suite" in state and state.suite["accepted"]:
     suite = state.suite
     manual = st.toggle("Let me approve tests myself", value=False, on_change=reset_from, args=("approved",))
     if st.button("Run AI review"):
-        llm = LLM(model=review.DEFAULT_GEMINI_MODEL)
         spec = Path(suite["spec"]).read_text()
+        llm = LLM(model=review.DEFAULT_GEMINI_MODEL, cache=requirements.is_example(spec))
         offset = log_offset()
         progress = st.progress(0.0)
         for n, entry in enumerate(suite["accepted"], 1):

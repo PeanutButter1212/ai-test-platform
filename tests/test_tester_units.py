@@ -131,3 +131,28 @@ def test_unavailable_server_is_not_judged():
     assert runner.server_unavailable(status("503"))
     assert not runner.server_unavailable(status("409"))   # a wrong business answer is judged as usual
     assert not runner.server_unavailable(status("500"))   # a crash can be a real bug
+
+
+def test_only_cached_clients_reuse_answers(tmp_path, monkeypatch):
+    from tester import llm as llm_module
+    monkeypatch.setattr(llm_module, "CACHE_DIR", tmp_path)
+    monkeypatch.setattr(llm_module, "LOG_PATH", tmp_path / "calls.jsonl")
+    cached = llm_module.LLM(model="m", cache=True, replay=True)
+    key_prompt = "same prompt"
+    import hashlib, json as _json
+    key = hashlib.sha256(_json.dumps(["m", "", key_prompt, None, 0.2]).encode()).hexdigest()[:16]
+    (tmp_path / f"{key}.json").write_text(_json.dumps({"model": "m", "response": "saved"}))
+
+    assert cached.generate(key_prompt) == "saved"
+    live = llm_module.LLM(model="m", cache=False, replay=True)   # replay=True: would fail rather than call the API
+    try:
+        live.generate(key_prompt)
+        raise AssertionError("a live client must not reuse a saved answer")
+    except llm_module.LLMError:
+        pass
+
+
+def test_only_the_example_requirements_count_as_example():
+    from tester.requirements import is_example
+    assert is_example(EXAMPLE_SPEC.read_text())
+    assert not is_example(EXAMPLE_SPEC.read_text().replace("10% off", "15% off"))

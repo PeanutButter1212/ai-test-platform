@@ -11,7 +11,7 @@ import os
 from collections import Counter
 from pathlib import Path
 
-from . import generator, report, review, runner
+from . import generator, report, requirements, review, runner
 from .llm import LLM
 
 DEFAULT_SPEC = "specs/shop-requirements.md"
@@ -44,7 +44,8 @@ def cmd_review(args):
                 print(f"   - {issue}")
 
     model = args.model or (os.environ.get("REVIEW_MODEL", review.DEFAULT_GEMINI_MODEL) if args.provider == "gemini" else None)
-    llm = LLM(model=model, provider=args.provider)
+    spec = Path(json.loads(Path(args.suite).read_text())["spec"]).read_text()
+    llm = LLM(model=model, provider=args.provider, cache=requirements.is_example(spec))
     print(f"Reviewing {args.suite} with {llm.model} ({args.provider})...")
     suite = review.review_suite(args.suite, llm, on_result=show)
     counts = Counter(e["review"].get("verdict", "error") for e in suite["accepted"])

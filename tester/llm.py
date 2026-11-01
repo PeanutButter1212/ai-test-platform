@@ -1,7 +1,8 @@
 """Single entry point for every LLM call.
 
-Every call is appended to a JSONL log (raw prompt + response) and cached by
-content hash, so runs can be audited and replayed offline with LLM_REPLAY=1.
+Every call is appended to a JSONL log (raw prompt + response). Clients created
+with cache=True (only used for the example requirements, to save free API quota)
+also store and reuse answers by content hash; everything else is always live.
 Two providers: Gemini (cloud, free tier) and Ollama (local, free, offline).
 """
 
@@ -33,8 +34,10 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 
 
 class LLM:
-    def __init__(self, model: str | None = None, replay: bool | None = None, provider: str = "gemini"):
+    def __init__(self, model: str | None = None, replay: bool | None = None, provider: str = "gemini",
+                 cache: bool = False):
         self.provider = provider
+        self.cache = cache
         if provider == "ollama":
             self.model = model or os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
             self.models = [self.model]  # one local model, nothing to fall back to
@@ -73,7 +76,7 @@ class LLM:
 
         started = time.time()
         errors = []
-        if cache_file.exists():
+        if self.cache and cache_file.exists():
             cached = json.loads(cache_file.read_text())
             text, source, used = cached["response"], "cache", cached["model"]
         elif self.replay:
@@ -90,11 +93,12 @@ class LLM:
                 })
                 raise
             source = "live"
-            CACHE_DIR.mkdir(exist_ok=True)
-            cache_file.write_text(json.dumps(
-                {"model": used, "purpose": purpose, "prompt": prompt, "response": text},
-                indent=2, ensure_ascii=False,
-            ))
+            if self.cache:
+                CACHE_DIR.mkdir(exist_ok=True)
+                cache_file.write_text(json.dumps(
+                    {"model": used, "purpose": purpose, "prompt": prompt, "response": text},
+                    indent=2, ensure_ascii=False,
+                ))
 
         self._log({
             "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
