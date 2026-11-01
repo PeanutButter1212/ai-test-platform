@@ -111,3 +111,23 @@ def test_changed_checks_lists_only_edited_expectations():
     before = {"steps": [{"checks": [{"field": "total", "value": "90.00"}, {"field": "subtotal", "value": "100.00"}]}]}
     after = {"steps": [{"checks": [{"field": "total", "value": "90.00"}, {"field": "subtotal", "value": "99.00"}]}]}
     assert changed_checks(before, after) == ["step 1 subtotal: 100.00 → 99.00"]
+
+
+def test_reruns_that_disagree_are_unstable():
+    def run(passed, actual="0.00", error=None):
+        check = {"field": "total", "expected": "90.00", "actual": actual, "passed": passed}
+        return {"passed": passed, "error": error, "steps": [{"checks": [check]}]}
+
+    assert not runner.is_unstable([run(False)] * 3)                         # same failure 3 times
+    assert runner.is_unstable([run(False), run(True), run(False)])          # a pass on rerun is not a pass
+    assert runner.is_unstable([run(False), run(False, actual="100.00"), run(False)])  # failure changes
+    assert runner.is_unstable([run(False, error="ConnectError"), run(False), run(False)])
+
+
+def test_unavailable_server_is_not_judged():
+    def status(actual):
+        return {"steps": [{"checks": [{"field": "<status>", "expected": "200", "actual": actual, "passed": False}]}]}
+
+    assert runner.server_unavailable(status("503"))
+    assert not runner.server_unavailable(status("409"))   # a wrong business answer is judged as usual
+    assert not runner.server_unavailable(status("500"))   # a crash can be a real bug
