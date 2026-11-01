@@ -15,8 +15,7 @@
 ✅ PASS         R3-02  Add item with quantity 21 exceeding maximum limit
 ✅ PASS         R3-03  Add item with quantity 0 below minimum limit
 ✅ PASS         R3-04  Add quantity to existing item causing cumulative quantity to exceed 20
-⚠️  UNSTABLE     R4-01  Checkout succeeds when item quantity exactly equals available stock  → <status>: expected 200, got 503
-   🔁 3 attempts: ❌ ✅ ✅
+✅ PASS         R4-01  Checkout succeeds when item quantity exactly equals available stock
 ✅ PASS         R4-02  Checkout fails with 409 OUT_OF_STOCK when item quantity exceeds available stock
 ❌ BUG          R4-03  Multi-item checkout failure preserves stock for all products in cart  → [id=3].stock: expected 5, got 3
    🔁 3 attempts: ❌ ❌ ❌
@@ -35,13 +34,14 @@
    🔁 3 attempts: ❌ ❌ ❌
    🤖 AI: The tier discount is not applied at the $100.00 boundary because of a strict inequality check.
       at shop/pricing.py:24 · suggested fix: if sub >= TIER_THRESHOLD:
-⚠️  UNSTABLE     R6-04  Verify checkout total matches cart total calculation  → <status>: expected 200, got 503
-   🔁 3 attempts: ❌ ✅ ✅
-✅ PASS         R7-01  Successful checkout reduces stock and applies discounts
-⚠️  UNSTABLE     R7-02  Checkout fails for an empty cart  → <status>: expected 400, got 503
+✅ PASS         R6-04  Verify checkout total matches cart total calculation
+⚠️  UNSTABLE     R7-01  Successful checkout reduces stock and applies discounts  → <status>: expected 200, got 503
    🔁 3 attempts: ❌ ❌ ✅
+⚠️  UNSTABLE     R7-02  Checkout fails for an empty cart
+   🔁 3 attempts: ✅ ❌ ✅
 ✅ PASS         R7-03  Checkout succeeds when buying exactly the remaining stock
-✅ PASS         R7-04  Checkout fails and preserves stock if quantity exceeds availability
+⚠️  UNSTABLE     R7-04  Checkout fails and preserves stock if quantity exceeds availability  → <status>: expected 409, got 503
+   🔁 3 attempts: ❌ ✅ ✅
 
 PASS 19 · BUG 4 · BAD_TEST 0 · NEEDS_REVIEW 0 · UNSTABLE 3 · ENV_ERROR 0
-Report: /Users/marcusng/tiktok/runs/20261101-155524/report.html
+Report: /Users/marcusng/tiktok/runs/20261101-161105/report.html

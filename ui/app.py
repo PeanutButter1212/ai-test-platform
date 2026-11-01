@@ -234,7 +234,7 @@ if "approved" in state:
     st.header("4 · Run against the shop")
     st.caption("Every test runs on a fresh copy of the shop; code decides pass or fail. For each failure the AI reads "
                "the requirements and the shop's code: code wrong = BUG, test wrong = BAD_TEST (the AI repairs it), "
-               "unsure = NEEDS_REVIEW. A failing test is rerun twice first; if the reruns disagree it is UNSTABLE.")
+               "unsure = NEEDS_REVIEW. Every test runs 3 times; if the runs disagree it is UNSTABLE.")
     if st.button("Run tests", type="primary"):
         offset = log_offset()
         with st.spinner("Starting the shop, running every test and judging failures…"):
@@ -280,7 +280,7 @@ if "approved" in state:
                             f"(attempt {a['attempt']}: {a['outcome']}).  \n{a.get('diagnosis') or a.get('error', '')}"
                             + "".join(f"  \n`{c}`" for c in changes))
             st.dataframe(pd.DataFrame([{"verdict": f"{ICONS[r['verdict']]} {r['verdict']}", "id": r["test"]["id"],
-                                        "attempts": report.attempt_marks(r.get("attempts") or [r["target"]]),
+                                        "attempts": report.attempt_marks(r["attempts"]),
                                         "title": r["test"]["title"]} for r in results]),
                          hide_index=True, width="stretch")
         with st.expander("Full report (also saved to disk)"):
