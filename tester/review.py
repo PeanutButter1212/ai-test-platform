@@ -1,7 +1,7 @@
 """Second-model review: a different model checks each generated test before it runs.
 
-Gemini 3.5 Flash writes the tests; a different model (Gemini 3 Flash by
-default, or a local Ollama model) independently predicts every expected value.
+Gemini 3.5 Flash writes the tests; a different model (Gemini 3 Flash)
+independently predicts every expected value.
 The review is blind: the reviewer never sees the test's expected values or the
 reasons given for them, because a model shown an answer tends to agree with it.
 Our code compares the two answers; mismatches are flagged for the human
