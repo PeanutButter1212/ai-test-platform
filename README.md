@@ -25,8 +25,45 @@ You type requirements
 
 **1. Just asking AI for test code was not reliable.** First I asked the AI to write test code directly.
 - Result: 5 fake bug reports, and it missed 1 of the 3 bugs.
-- Fix: the AI now fills in a fixed test format instead of writing free code. A checker rejects bad tests, and every check must name the rule it comes from.
+- Fix: the AI now fills in a fixed test form instead of writing free code. A checker rejects bad tests, and every check must name the rule it comes from.
 - Result: all 3 bugs found, 0 fake reports. (`docs/design-iteration.md`)
+
+A real test the AI wrote (shortened, from `generated/v2/suite.json`):
+
+```json
+{
+  "id": "R1-02",
+  "rule": "R1",
+  "title": "Subtotal exactly $100.00 qualifies for 10% spend discount",
+  "steps": [
+    { "method": "POST", "path": "/api/carts", "save_id_as": "cart" },
+    { "method": "POST", "path": "/api/carts/{cart}/items",
+      "body": { "product_id": 2, "qty": 4 },
+      "checks": [
+        { "field": "tier_discount", "op": "equals", "value": "10.00",
+          "rule": "R1", "why": "Subtotal is exactly $100.00, so it qualifies for 10% off" }
+      ] }
+  ]
+}
+```
+
+In words: make a cart, add 4 Glow Serums ($100), and check the discount is 10.00 because of rule R1. The AI can only fill in steps, checks, the rule and a reason.
+
+Before, the AI wrote free code instead:
+
+```python
+def test_discount():
+    cart = httpx.post(f"{BASE}/api/carts").json()["id"]
+    ...
+    assert r.json()["tier_discount"] == "10.00"
+```
+
+Free code can do anything, so it is hard to check and does not say which rule it tests. With the form:
+- our code can check a test before running it (does the rule exist? does the page exist? does it check anything?);
+- every expected value comes with a rule and a reason;
+- our code runs the test, not the AI's code.
+
+The form is defined in `tester/dsl.py`.
 
 **2. The local second reviewer was not accurate enough.** I wanted a second AI to double-check every test, and first tried a free local model (Qwen via Ollama).
 - When it could see the test's answers, it agreed with everything, even tests I broke on purpose.
