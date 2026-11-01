@@ -12,8 +12,8 @@ or neither:
   ENV_ERROR     a request could not be completed, or the server said it was unavailable
                 (502/503/504) -> no conclusion about app or test
 
-A failing test is rerun RERUNS more times before anything is judged. A pass on a
-rerun never turns a failure into PASS: mixed results are UNSTABLE.
+Every test runs 1 + RERUNS times (no AI is involved in running, so this is cheap).
+Only consistent results count: mixed results are UNSTABLE, never PASS.
 """
 
 import json
@@ -90,16 +90,13 @@ def run_suite(suite_path: str, target_ref: str | None = None) -> Path:
             record["target"] = {"ref": env["ref"], "commit": env["commit"]}
             llm = LLM()
             for test in tests:
-                r = run_test(test, env["base_url"])
-                details = {}
-                if not r["passed"]:
-                    # Never trust a single failure: repeat it, and keep every attempt.
-                    attempts = [r] + [run_test(test, env["base_url"]) for _ in range(RERUNS)]
-                    details["attempts"] = attempts
-                if r["passed"]:
-                    verdict = "PASS"
-                elif is_unstable(details["attempts"]):
+                # Never trust a single run, pass or fail: repeat it, and keep every attempt.
+                attempts = [run_test(test, env["base_url"]) for _ in range(1 + RERUNS)]
+                r, details = attempts[0], {"attempts": attempts}
+                if is_unstable(attempts):
                     verdict = "UNSTABLE"
+                elif r["passed"]:
+                    verdict = "PASS"
                 elif r["error"]:
                     verdict = "ENV_ERROR"
                 elif server_unavailable(r):

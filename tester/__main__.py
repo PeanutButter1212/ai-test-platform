@@ -62,7 +62,7 @@ def cmd_run(args):
             failed = [c for s in r["target"]["steps"] for c in s["checks"] if not c["passed"]]
             detail = f"  → {failed[0]['field']}: expected {failed[0]['expected']}, got {failed[0]['actual']}" if failed else ""
             print(f"{ICONS[r['verdict']]} {r['verdict']:12} {r['test']['id']:6} {r['test']['title']}{detail}")
-            if r.get("attempts"):
+            if r.get("attempts") and r["verdict"] != "PASS":
                 print(f"   🔁 {len(r['attempts'])} attempts: {report.attempt_marks(r['attempts'])}")
             if r.get("reason"):
                 print(f"   {'🔌 not judged' if r['verdict'] == 'ENV_ERROR' else '🙋 needs a human'}: {r['reason']}")
