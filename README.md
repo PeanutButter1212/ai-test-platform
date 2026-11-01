@@ -26,23 +26,26 @@ The app being tested is a small online shop (`shop/`) with 3 planted bugs (`docs
 - large codebases;
 - logins.
 
-**Done:** everything in "How it works" below runs end to end, on the screen and from the terminal.
-
 ## How it works
 
-```
-You type requirements
-→ AI turns them into numbered rules and asks about anything unclear
-→ AI writes tests from the rules (it never sees the code at this stage)
-→ a second AI checks each test blind (it works out the answers without seeing them)
-→ code runs every test on a fresh copy of the shop and decides pass/fail
-→ every test runs 3 times; if the results change, it is UNSTABLE (a human looks)
-→ for each failure, AI reads the rules + the failure + the code:
-     code is wrong → BUG          (with the line and a suggested fix)
-     test is wrong → BAD_TEST     (AI fixes its own test and reruns it)
-     not sure      → NEEDS_REVIEW (a human decides)
-→ developer fixes the code → run the same tests again
-```
+1. **You** type the rules in plain English.
+2. **AI** turns them into numbered rules (R1, R2…) and asks about anything unclear.
+3. **AI** writes tests from the rules only. It never sees the code at this stage.
+4. **A second AI** checks each test blind: it works out the answers without seeing the test's answers. Tests it disagrees with are left out.
+5. **Code** starts a fresh copy of the shop, runs every test 3 times, and decides pass or fail.
+6. **AI** looks at each test that failed all 3 times: it reads the rules, the failure and the code, and decides whether the code or the test is wrong.
+7. **You** fix the code and run the same tests again.
+
+Every test ends with one label:
+
+| Label            | Meaning                                                                    | Who decides                                           |
+| ---------------- | -------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **PASS**         | The shop follows the rule                                                  | Code                                                  |
+| **BUG**          | The code breaks the rule. Shows the faulty line and a suggested fix        | AI judges; code checks the line really exists         |
+| **BAD_TEST**     | The test was wrong. The AI rewrote it and the new test passed              | AI rewrites; code reruns it                           |
+| **NEEDS_REVIEW** | It failed every time, but the AI can't prove whether the code or the test is wrong | A human                                       |
+| **UNSTABLE**     | The 3 runs gave different results (e.g. pass, fail, pass)                  | Code; a human looks. Never counted as a pass          |
+| **ENV_ERROR**    | The shop was down or unreachable, so the test could not be judged          | Code                                                  |
 
 **AI** writes, reviews and judges. **Code** runs the tests, decides pass/fail, and checks that the line the AI blames really exists. **A human** fixes bugs and decides anything the AI is unsure about.
 
@@ -50,11 +53,11 @@ You type requirements
 
 All three are code logic mistakes: the code does something different from what the rules say. The tests are written only from the rules, so they expect the right behaviour, and the buggy code fails them.
 
-| Bug | Rule (`specs/shop-requirements.md`) | What the code does wrong | Tests that caught it | AI judge pointed to |
-|---|---|---|---|---|
-| B1 | R1: $100 or more gets 10% off | Uses `>` instead of `>=`, so exactly $100 gets no discount | R1-02, R6-03 | `shop/pricing.py:24` |
-| B2 | R2: only one coupon per order | Only blocks the *same* coupon twice; two different coupons are accepted | R2-01 | `shop/app.py:182` |
-| B3 | R4: a failed checkout must not change stock | Removes stock item by item, so items before the failing one stay removed | R4-03 | `shop/app.py:220` |
+| Bug | Rule (`specs/shop-requirements.md`)         | What the code does wrong                                                 | Tests that caught it | AI judge pointed to  |
+| --- | ------------------------------------------- | ------------------------------------------------------------------------ | -------------------- | -------------------- |
+| B1  | R1: $100 or more gets 10% off               | Uses `>` instead of `>=`, so exactly $100 gets no discount               | R1-02, R6-03         | `shop/pricing.py:24` |
+| B2  | R2: only one coupon per order               | Only blocks the _same_ coupon twice; two different coupons are accepted  | R2-01                | `shop/app.py:182`    |
+| B3  | R4: a failed checkout must not change stock | Removes stock item by item, so items before the failing one stay removed | R4-03                | `shop/app.py:220`    |
 
 Details and how to see each bug by hand: `docs/seeded-defects.md`. That file is never shown to the AI.
 
@@ -66,7 +69,7 @@ A different model (Gemini 3 Flash) checks each test before it runs, like a teach
 2. It works out each value itself from the rules.
 3. Our code compares its answers with the test's. If they match, the test is kept. If they differ, the test is flagged and left out (or shown to a person if approval is turned on).
 
-It is blind on purpose: when the reviewer could see the answers, it agreed with everything, even tests I had broken on purpose. It catches wrong tests *before* they run, including ones that would wrongly pass. Example: "$100 gets $0 off" passes on the buggy shop, because the bug gives $0 too.
+It is blind on purpose: when the reviewer could see the answers, it agreed with everything, even tests I had broken on purpose. It catches wrong tests _before_ they run, including ones that would wrongly pass. Example: "$100 gets $0 off" passes on the buggy shop, because the bug gives $0 too.
 
 ## Main parts
 
@@ -82,20 +85,22 @@ It is blind on purpose: when the reviewer could see the answers, it agreed with 
 | Judge a failure: code, test or unsure; check the blamed line exists | `tester/triage.py`                                    | AI judges, code verifies                |
 | Fix a wrong test                                                    | `tester/repair.py`                                    | AI rewrites, code re-checks and re-runs |
 | Report, screen, terminal                                            | `tester/report.py`, `ui/app.py`, `tester/__main__.py` | code                                    |
-| One place for every AI call: log, fallback model, saved answers      | `tester/llm.py`                                       | code                                    |
+| One place for every AI call: log, fallback model, saved answers     | `tester/llm.py`                                       | code                                    |
 
-**The states a test goes through:**
+## Where each prompt is
 
-```
-written → rejected by linter
-        → flagged by reviewer (left out)
-        → run 3 times → PASS
-                      → UNSTABLE (runs disagree)
-                      → ENV_ERROR (shop unreachable / 503)
-                      → same failure 3 times → AI judge → BUG
-                                                        → BAD_TEST (repaired, now passes)
-                                                        → NEEDS_REVIEW
-```
+Every AI step has its prompt at the top of its file, in two parts: `SYSTEM` (the AI's role) and `PROMPT` (the message, with the rules and test filled in). Click a file to open the prompt.
+
+| AI step                       | Prompt                                               | Model            | What goes in                                                                 | What comes out                                                                                        |
+| ----------------------------- | ---------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 1. Turn typed text into rules | [tester/requirements.py](tester/requirements.py#L29) | Gemini 3.5 Flash | What you typed                                                               | Numbered rules (R1, R2…), plus up to 2 plain questions if something is unclear                        |
+| 2. Write the tests            | [tester/generator.py](tester/generator.py#L14)       | Gemini 3.5 Flash | The rules only, never the code                                               | Tests as filled-in forms; every check names its rule and why                                          |
+| 3. Blind second review        | [tester/review.py](tester/review.py#L23)             | Gemini 3 Flash   | The rules, and each test with its expected values hidden                     | Its own answer for each hidden value; code then compares the two                                      |
+| 4. Judge a failure            | [tester/triage.py](tester/triage.py#L20)             | Gemini 3.5 Flash | The rules, the failed check (expected vs actual) and the shop's code         | Who is wrong (code, test or unsure), the exact line, and a suggested fix; code checks the line exists |
+| 5. Repair a wrong test        | [tester/repair.py](tester/repair.py#L22)             | Gemini 3.5 Flash | The rules, the wrong test, what the shop returned, and the judge's reasoning | A corrected test, or "keep" if it thinks the test was right; code re-checks and reruns it             |
+| Old v1 (not used now)         | [tester/v1_codegen.py](tester/v1_codegen.py#L16)     | Gemini 3.5 Flash | The rules                                                                    | A whole pytest file; replaced by the form (see "How the idea changed")                                |
+
+Every prompt actually sent, and the answer, is also saved locally to `runs/llm_calls.jsonl`. That file is not in the repo.
 
 ## Two key decisions
 
@@ -215,11 +220,16 @@ This itself is another limitation as the model is reviewing another Gemini model
 | **Built by me**    | The shop and its 3 planted bugs; the test form and linter; the test runner; the blind review method; the AI judge and its line check; the self-repair loop; the 3× reruns; the report, screen and terminal tool; all prompts                                                                                                        |
 | **AI coding tool** | Claude Code helped write the code. I made the product decisions and corrected it along the way (see "How the idea changed").                                                                                                                                                                                                        |
 
-**Most valuable contribution:** making AI-written tests trustworthy. AI only fills in a checked form, a second model reviews it blind, and every AI verdict is backed by something code can check: the blamed line exists, the repaired test passes, the runs agree.
+**Most valuable contribution:** "ask an AI to write tests from the requirements" is the obvious idea, and on its own it isn't accurate enough. My contribution is two simple additions that made a measurable difference:
+
+- **Tests as a JSON form, not free code.** Free test code gave 5 fake bug reports and missed 1 of the 3 bugs. With the form, every check names its rule: 0 fake reports, 3 of 3 bugs found. (The prompt also changed between the two versions, so this is not a perfectly controlled comparison.)
+- **A blind second model.** A reviewer that could see the answers agreed with everything, even broken tests. With the answers hidden, it caught 3 of 3 broken tests and raised 0 false alarms on 26 good ones.
+
+Everything else follows the same idea: the AI suggests, and code checks it (the blamed line exists, the repaired test passes, the 3 runs agree).
 
 ## Run it
 
-**Version:** git tag `v1.0`. Python 3.12. Libraries are in `requirements.txt`. Gemini needs a free API key; Ollama is optional.
+**Version:** git tag `v1.0`. Python 3.12. Libraries are in `requirements.txt`. Gemini needs a free API key.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -240,22 +250,27 @@ Try the random-failure switch: `SHOP_FLAKY=0.3 python -m tester run`.
 
 ## What is real, simulated, pre-generated or recorded
 
-| Label               | What                                                                                                                                                                              |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Real**            | Every test run (real requests to a real shop on your machine) and every live AI call                                                                                              |
-| **Simulated**       | The 3 bugs (planted on purpose); the 3 broken tests in `generated/broken/` (planted AI mistakes); random checkout failures (`SHOP_FLAKY`, `shop/chaos.py`)                        |
+| Label               | What                                                                                                                                                                        |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Real**            | Every test run (real requests to a real shop on your machine) and every live AI call                                                                                        |
+| **Simulated**       | The 3 bugs (planted on purpose); the 3 broken tests in `generated/broken/` (planted AI mistakes); random checkout failures (`SHOP_FLAKY`, `shop/chaos.py`)                  |
 | **Pre-generated**   | `generated/v2/suite.json` (tests written by Gemini earlier). The example requirements reuse AI answers saved earlier, to save free API quota. Anything typed is always live |
-| **Recorded**        | Everything in `evidence/`: saved runs with raw results, reports and server logs                                                                                                   |
-| **Screen-recorded** | Nothing                                                                                                                                                                           |
+| **Recorded**        | Everything in `evidence/`: saved runs with raw results, reports and server logs                                                                                             |
+| **Screen-recorded** | Nothing                                                                                                                                                                     |
 
 ## Limitations
 
-- **A wrong test can hide a bug** if it makes the same mistake as the code. The reviewer catches some of these, not all.
 - **The reviewer and the writer are both Gemini,** so they may share blind spots. Free APIs from other vendors were not available to test.
 - **The AI judge reads a fixed list of 3 files.** A large codebase would need the AI to search for the right files itself.
 - **Only API tests with exact values.** No website clicks, speed, or many users at once.
 - **Flakiness that shows up less than once in 3 runs** can be missed. A real bug that also fails randomly shows as UNSTABLE, not BUG.
 - **Tested on one small shop with 3 planted bugs.** The numbers here are evidence, not a benchmark.
+
+## Unfinished parts
+
+- **The AI judge can't look for files itself.** It is given 3 fixed files; a real codebase needs it to search for the right ones.
+- **The test form only covers API value checks.** Speed or website tests would need a new form and a runner for it.
+- **UNSTABLE doesn't say which run was different.** All attempts are saved, but you have to compare them yourself.
 
 ## Proof
 
