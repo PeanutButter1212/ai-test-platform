@@ -262,14 +262,14 @@ Try the random-failure switch: `SHOP_FLAKY=0.3 python -m tester run`.
 
 - **The reviewer and the writer are both Gemini,** so they may share blind spots. Free APIs from other vendors were not available to test.
 - **The AI judge reads a fixed list of 3 files.** A large codebase would need the AI to search for the right files itself.
-- **Only API tests with exact values.** No website clicks, speed, or many users at once.
+- **Tests only check the values the shop sends back.** No website clicks, speed, or many users at once.
 - **Flakiness that shows up less than once in 3 runs** can be missed. A real bug that also fails randomly shows as UNSTABLE, not BUG.
 - **Tested on one small shop with 3 planted bugs.** The numbers here are evidence, not a benchmark.
 
 ## Unfinished parts
 
 - **The AI judge can't look for files itself.** It is given 3 fixed files, but a real codebase needs it to search for the right ones. This is where there's potential for another agent to search for the relevant files before sending them for evaluation.
-- **The test form only covers API value checks.** Speed or website tests would need a new form and a runner for it.
+- **The test form only checks the values the shop sends back.** Speed or website tests would need a new form and a runner for it.
 - **UNSTABLE doesn't say which run was different.** All attempts are saved, but you have to compare them yourself.
 
 ## Proof
