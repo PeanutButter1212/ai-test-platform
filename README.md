@@ -12,19 +12,19 @@ The app being tested is a small online shop (`shop/`) with 3 planted bugs (`docs
 
 **In scope:** rules for a web API (a backend that answers requests), written in plain English. The tool covers:
 
-- turning the rules into tests;
-- running them on a fresh copy of the app;
-- deciding bug vs. wrong test vs. unstable;
-- pointing to the faulty line;
-- retesting after a fix.
+- turning specified rules into tests
+- running them on a fresh copy of the app
+- deciding bug vs. wrong test
+- pointing to the faulty line
+- retesting after a fix
 
 **Out of scope:**
 
-- clicking through a website;
-- speed and load tests;
-- many users acting at the same time;
-- large codebases;
-- logins.
+- clicking through a website
+- speed and load tests
+- many users acting at the same time
+- large codebases
+- logins
 
 ## How it works
 
