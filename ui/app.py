@@ -22,7 +22,7 @@ from tester.llm import LOG_PATH, LLM, LLMError  # noqa: E402
 
 ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "🔧", "NEEDS_REVIEW": "🙋", "UNSTABLE": "⚠️", "ENV_ERROR": "🔌"}
 
-st.set_page_config(page_title="AI Test Platform", page_icon="🧪", layout="wide")
+st.set_page_config(page_title="AI Test Platform", layout="wide")
 state = st.session_state
 state.setdefault("messages", [])
 state.setdefault("rules", [])
@@ -75,7 +75,7 @@ def describe(test: dict) -> str:
 
 # ---------------------------------------------------------------- sidebar
 with st.sidebar:
-    st.title("🧪 AI Test Platform")
+    st.title("AI Test Platform")
     st.caption("Requirements in, executable tests out. AI writes, reviews and judges; code runs every check; "
                "a human gets anything the AI is unsure about.")
     st.markdown(f"**Writes tests:** `{LLM().model}`  \n**Reviews tests:** `{review.DEFAULT_GEMINI_MODEL}`  \n"
