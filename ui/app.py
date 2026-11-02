@@ -233,9 +233,6 @@ if "suite" in state and state.suite["accepted"]:
 # ---------------------------------------------------------------- 4. run
 if "approved" in state:
     st.header("4 · Run against the shop")
-    st.caption("Every test runs on a fresh copy of the shop; code decides pass or fail. For each failure the AI reads "
-               "the requirements and the shop's code: code wrong = BUG, test wrong = BAD_TEST (the AI repairs it), "
-               "unsure = NEEDS_REVIEW. Every test runs 3 times; if the runs disagree it is UNSTABLE.")
     if st.button("Run tests", type="primary"):
         offset = log_offset()
         with st.spinner("Starting the shop, running every test and judging failures…"):
