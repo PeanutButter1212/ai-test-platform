@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT))
 from tester import generator, report, requirements, review, runner  # noqa: E402
 from tester.llm import LOG_PATH, LLM, LLMError  # noqa: E402
 
-ICONS = {"PASS": "✅", "BUG": "❌", "BAD_TEST": "🔧", "NEEDS_REVIEW": "🙋", "UNSTABLE": "⚠️", "ENV_ERROR": "🔌"}
+VERDICTS = ["PASS", "BUG", "BAD_TEST", "NEEDS_REVIEW", "UNSTABLE", "ENV_ERROR"]
 
 st.set_page_config(page_title="AI Test Platform", layout="wide")
 state = st.session_state
@@ -106,7 +106,7 @@ if prompt := st.chat_input("e.g. Orders of $100 or more get 10% off. Only one co
         try:
             result = requirements.structure(state.messages)
         except (LLMError, ValueError) as exc:
-            state.messages.append({"role": "assistant", "content": f"⚠️ AI call failed: {exc}"})
+            state.messages.append({"role": "assistant", "content": f"AI call failed: {exc}"})
         else:
             state.rules = [r.model_dump() for r in result.rules]
             state.questions = result.questions
@@ -208,7 +208,7 @@ if "suite" in state and state.suite["accepted"]:
         verdict = rv.get("verdict", "error" if "error" in rv else "not reviewed")
         rows.append({"keep": verdict != "disagree", "id": e["test"]["id"], "kind": e["test"]["kind"],
                      "title": e["test"]["title"],
-                     "review": {"agree": "👍 agree", "disagree": "🚩 disagree"}.get(verdict, f"❔ {verdict}")})
+                     "review": verdict})
 
     if manual:
         table = st.data_editor(pd.DataFrame(rows), hide_index=True, width="stretch",
@@ -223,7 +223,7 @@ if "suite" in state and state.suite["accepted"]:
             approve({r["id"] for r in rows if r["keep"]}, "AI review")
 
     for e in flagged:
-        st.error(f"🚩 **{e['test']['id']}** — reviewer disagrees, {'untick to leave out' if manual else 'left out'}:\n"
+        st.error(f"**{e['test']['id']}** — reviewer disagrees, {'untick to leave out' if manual else 'left out'}:\n"
                  + "\n".join(f"- {i}" for i in e["review"]["issues"]))
     with st.expander("See every test"):
         for e in suite["accepted"]:
@@ -246,19 +246,19 @@ if "approved" in state:
         run_dir = Path(state.run_dir)
         data = json.loads((run_dir / "results.json").read_text())
         if data["status"] == "ENV_ERROR":
-            st.error(f"🔌 The environment failed, so no test was judged:\n\n{data['env_error']}")
+            st.error(f"The environment failed, so no test was judged:\n\n{data['env_error']}")
         else:
             results = data["results"]
-            cols = st.columns(len(ICONS))
-            for col, verdict in zip(cols, ICONS):
-                col.metric(f"{ICONS[verdict]} {verdict}", sum(r["verdict"] == verdict for r in results))
+            cols = st.columns(len(VERDICTS))
+            for col, verdict in zip(cols, VERDICTS):
+                col.metric(verdict, sum(r["verdict"] == verdict for r in results))
             ai_note("run")
             for r in results:
                 if r["verdict"] != "BUG":
                     continue
                 failed = [c for s in r["target"]["steps"] for c in s["checks"] if not c["passed"]]
                 with st.container(border=True):
-                    st.markdown(f"❌ **{r['test']['id']}** {r['test']['title']}")
+                    st.markdown(f"**{r['test']['id']}** {r['test']['title']}")
                     for c in failed:
                         st.markdown(f"- `{c['field']}`: expected **{c['expected']}**, got **{c['actual']}** ({c['rule']})")
                     diag = r.get("triage", {}).get("diagnosis")
@@ -266,21 +266,21 @@ if "approved" in state:
                         loc = r["triage"]["location"]
                         where = f"{diag['file']}:{loc['line']} (location verified)" if loc["verified"] \
                             else f"{diag['file']} (location not verified)"
-                        st.markdown(f"🤖 **AI suggestion — advice only, needs developer review**  \n"
+                        st.markdown(f"**AI suggestion — advice only, needs developer review**  \n"
                                     f"{diag['summary']}  \nat `{where}`")
                         st.code(diag["suggested_fix"] or "(remove the quoted line)", language="python")
             for r in results:
                 if r["verdict"] == "UNSTABLE":
-                    st.warning(f"⚠️ **{r['test']['id']}** {r['test']['title']}: gave different results when rerun "
+                    st.warning(f"**{r['test']['id']}** {r['test']['title']}: gave different results when rerun "
                                f"({report.attempt_marks(r['attempts'])}), so it was not judged. A human should look.")
                 if r["verdict"] == "NEEDS_REVIEW":
-                    st.warning(f"🙋 **{r['test']['id']}** {r['test']['title']}: needs a human, {r['reason']}.")
+                    st.warning(f"**{r['test']['id']}** {r['test']['title']}: needs a human, {r['reason']}.")
                 for a in r.get("repairs", []):
                     changes = report.changed_checks(a["before"], a["after"]) if a.get("after") else []
-                    st.info(f"🔧 **{r['test']['id']}**: the AI judged its own test wrong and repaired it "
+                    st.info(f"**{r['test']['id']}**: the AI judged its own test wrong and repaired it "
                             f"(attempt {a['attempt']}: {a['outcome']}).  \n{a.get('diagnosis') or a.get('error', '')}"
                             + "".join(f"  \n`{c}`" for c in changes))
-            st.dataframe(pd.DataFrame([{"verdict": f"{ICONS[r['verdict']]} {r['verdict']}", "id": r["test"]["id"],
+            st.dataframe(pd.DataFrame([{"verdict": r["verdict"], "id": r["test"]["id"],
                                         "attempts": report.attempt_marks(r["attempts"]),
                                         "title": r["test"]["title"]} for r in results]),
                          hide_index=True, width="stretch")
