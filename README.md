@@ -41,10 +41,13 @@ Every test ends with one label:
 | Label            | Meaning                                                                            | Who decides                                   |
 | ---------------- | ---------------------------------------------------------------------------------- | --------------------------------------------- |
 | **PASS**         | The shop follows the rule                                                          | Code                                          |
-| **BUG**          | The code breaks the rule. Shows the faulty line and a suggested fix                | AI judges; code checks the line really exists |
-| **BAD_TEST**     | The test was wrong. The AI rewrote it and the new test passed                      | AI rewrites; code reruns it                   |
-| **NEEDS_REVIEW** | It failed every time, but the AI can't prove whether the code or the test is wrong | A human                                       |
-| **UNSTABLE**     | The 3 runs gave different results (e.g. pass, fail, pass)                          | Code; a human looks. Never counted as a pass  |
+| **BUG**          | The code breaks the rule. Shows the faulty line and a suggested fix                | AI judges 
+        |
+| **BAD_TEST**     | The test was wrong. The AI rewrote it and the new test passed                      | AI rewrites                   
+        |
+| **NEEDS_REVIEW** | It failed every time, but the AI can't prove whether the code or the test is wrong | Human                                         |
+| **UNSTABLE**     | The 3 runs gave different results (e.g. pass, fail, pass)                          | Code + human review 
+        |
 | **ENV_ERROR**    | The shop was down or unreachable, so the test could not be judged                  | Code                                          |
 
 **AI** writes, reviews and judges. **Code** runs the tests, decides pass/fail, and checks that the line the AI blames really exists. **A human** fixes bugs and decides anything the AI is unsure about.
@@ -67,7 +70,7 @@ A different model (Gemini 3 Flash) checks each test before it runs, like a teach
 
 1. It gets the rules and the test's steps, with the expected values hidden: "add 4 Glow Serums ($100) → discount = ?".
 2. It works out each value itself from the rules.
-3. Our code compares its answers with the test's. If they match, the test is kept. If they differ, the test is flagged and left out (or shown to a person if approval is turned on).
+3. Our code compares its answers with the test's. If they match, the test is kept. If they differ, the test is flagged and left out.
 
 It is blind on purpose: when the reviewer could see the answers, it agreed with everything, even tests I had broken on purpose. It catches wrong tests _before_ they run, including ones that would wrongly pass. Example: "$100 gets $0 off" passes on the buggy shop, because the bug gives $0 too.
 
