@@ -102,7 +102,7 @@ Every AI step has its prompt at the top of its file, in two parts: `SYSTEM` (the
 
 Every prompt actually sent, and the answer, is also saved locally to `runs/llm_calls.jsonl`. That file is not in the repo.
 
-## Two key decisions
+## Three key decisions
 
 **1. Tests are a form the AI fills in, not code the AI writes** (`tester/dsl.py`)
 
@@ -122,6 +122,12 @@ Every prompt actually sent, and the answer, is also saved locally to `runs/llm_c
   - a BUG needs the blamed line to really exist
   - a BAD_TEST needs the AI's rewritten test to pass
   - everything else goes to a human
+
+**3. A fixed pipeline, not a free-running agent** (`tester/runner.py`)
+
+- **Other option:** give one AI agent tools (read files, send requests, run tests) and let it decide what to do next.
+- **Why:** every step always happens in the same order, each AI answer is checked by code before the next step uses it, and a run can be repeated and explained afterwards.
+- **Trade-off:** the pipeline can't explore on its own. For example, the AI judge is given 3 fixed files instead of searching the codebase for the right ones. Adding a small agent for that one step is the clearest next step (see "Unfinished parts").
 
 ## Design point of view
 
@@ -189,7 +195,7 @@ Free code can do anything, so it is hard to check and does not say which rule it
 
 The form is defined in `tester/dsl.py`.
 
-Also this is extendable to any other test cases by changing the format of the template.
+The same idea works for other kinds of tests too: you would add a new form for them and code that knows how to run it.
 
 **2. The local second reviewer was not accurate enough.** I wanted a second AI to double-check every test, and first tried a free local model (Qwen via Ollama).
 
@@ -199,7 +205,7 @@ Also this is extendable to any other test cases by changing the format of the te
 - A bigger version was worse (11) and 25× slower.
 - So I switched the reviewer to Gemini 3 Flash: it catches all broken tests and wrongly flags 0. (`docs/review-tuning.md`)
 
-This itself is another limitation as the model is reviewing another Gemini model. Ideally we should use either claude/chatgpt but due to APIs not being free I was unable to test it.
+This is also a limitation, because one Gemini model is reviewing another, so they may share blind spots. A reviewer from a different company, such as Claude or ChatGPT, would be a stronger check, but their APIs aren't free, so I couldn't test it.
 
 **3. Comparing with a bug-free copy was unrealistic.** To tell "bug" from "bad test", I first ran every test on a saved bug-free copy of the shop too. If a test failed there as well, the test was wrong.
 
@@ -210,6 +216,14 @@ This itself is another limitation as the model is reviewing another Gemini model
 
 - Wrong tests used to be thrown away. Now the AI fixes its own test.
 - Human approval of tests is now optional: tests the reviewer flags are left out automatically.
+
+## Existing tools I looked at
+
+- **Schemathesis** sends thousands of random requests based on an API's description. It finds crashes and wrong formats, but it can't create tests from business rules, so it would never notice that exactly $100 gets no discount. It would be a good addition later for crash testing.
+- **TestTeller and LingTest** use AI to turn requirement documents into test cases. They are the closest to this project, but nothing checks the tests the AI writes, which is exactly where my first version went wrong with 5 fake bug reports.
+- **Qodo Cover** uses AI to read the code and write unit tests for it. It learns what the code does, not what it should do, so if the code has a bug, the test expects the bug.
+
+What this project does differently: tests come from the rules, never the code, and every test and every AI verdict is checked before you see it.
 
 ## What I reused, changed and built
 
@@ -229,7 +243,7 @@ Everything else follows the same idea: the AI suggests, and code checks it (the 
 
 ## Run it
 
-**Version:** git tag `v1.0`. Python 3.12. Libraries are in `requirements.txt`. Gemini needs a free API key.
+**Version:** git tag `v1.1`. Python 3.12. Libraries are in `requirements.txt`. Gemini needs a free API key.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
