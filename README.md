@@ -41,13 +41,10 @@ Every test ends with one label:
 | Label            | Meaning                                                                            | Who decides                                   |
 | ---------------- | ---------------------------------------------------------------------------------- | --------------------------------------------- |
 | **PASS**         | The shop follows the rule                                                          | Code                                          |
-| **BUG**          | The code breaks the rule. Shows the faulty line and a suggested fix                | AI judges 
-        |
-| **BAD_TEST**     | The test was wrong. The AI rewrote it and the new test passed                      | AI rewrites                   
-        |
+| **BUG**          | The code breaks the rule. Shows the faulty line and a suggested fix                | AI judges                                     |
+| **BAD_TEST**     | The test was wrong. The AI rewrote it and the new test passed                      | AI rewrites                                   |
 | **NEEDS_REVIEW** | It failed every time, but the AI can't prove whether the code or the test is wrong | Human                                         |
-| **UNSTABLE**     | The 3 runs gave different results (e.g. pass, fail, pass)                          | Code + human review 
-        |
+| **UNSTABLE**     | The 3 runs gave different results (e.g. pass, fail, pass)                          | Code + human review                           |
 | **ENV_ERROR**    | The shop was down or unreachable, so the test could not be judged                  | Code                                          |
 
 **AI** writes, reviews and judges. **Code** runs the tests, decides pass/fail, and checks that the line the AI blames really exists. **A human** fixes bugs and decides anything the AI is unsure about.
@@ -59,7 +56,7 @@ All three are code logic mistakes: the code does something different from what t
 | Bug | Rule (`specs/shop-requirements.md`)         | What the code does wrong                                                 | Tests that caught it | AI judge pointed to  |
 | --- | ------------------------------------------- | ------------------------------------------------------------------------ | -------------------- | -------------------- |
 | B1  | R1: $100 or more gets 10% off               | Uses `>` instead of `>=`, so exactly $100 gets no discount               | R1-02, R6-03         | `shop/pricing.py:24` |
-| B2  | R2: only one coupon per order               | Only blocks the _same_ coupon twice; two different coupons are accepted  | R2-01                | `shop/app.py:182`    |
+| B2  | R2: only one coupon per order               | Only blocks the _same_ coupon twice, so two different coupons pass  | R2-01                | `shop/app.py:182`    |
 | B3  | R4: a failed checkout must not change stock | Removes stock item by item, so items before the failing one stay removed | R4-03                | `shop/app.py:220`    |
 
 Details and how to see each bug by hand: `docs/seeded-defects.md`. That file is never shown to the AI.
@@ -85,7 +82,7 @@ It is blind on purpose: when the reviewer could see the answers, it agreed with 
 | Start a fresh shop with its own database                            | `tester/env.py`                                       | code                                    |
 | Send the requests, decide pass/fail per check                       | `tester/engine.py`                                    | code                                    |
 | Run every test 3 times, decide the verdict                          | `tester/runner.py`                                    | code                                    |
-| Judge a failure: code, test or unsure; check the blamed line exists | `tester/triage.py`                                    | AI judges, code verifies                |
+| Judge a failure (code, test or unsure), check the blamed line | `tester/triage.py`                                    | AI judges, code verifies                |
 | Fix a wrong test                                                    | `tester/repair.py`                                    | AI rewrites, code re-checks and re-runs |
 | Report, screen, terminal                                            | `tester/report.py`, `ui/app.py`, `tester/__main__.py` | code                                    |
 | One place for every AI call: log, fallback model, saved answers     | `tester/llm.py`                                       | code                                    |
@@ -97,11 +94,11 @@ Every AI step has its prompt at the top of its file, in two parts: `SYSTEM` (the
 | AI step                       | Prompt                                               | Model            | What goes in                                                                 | What comes out                                                                                        |
 | ----------------------------- | ---------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | 1. Turn typed text into rules | [tester/requirements.py](tester/requirements.py#L29) | Gemini 3.5 Flash | What you typed                                                               | Numbered rules (R1, R2…), plus up to 2 plain questions if something is unclear                        |
-| 2. Write the tests            | [tester/generator.py](tester/generator.py#L14)       | Gemini 3.5 Flash | The rules only, never the code                                               | Tests as filled-in forms; every check names its rule and why                                          |
-| 3. Blind second review        | [tester/review.py](tester/review.py#L23)             | Gemini 3 Flash   | The rules, and each test with its expected values hidden                     | Its own answer for each hidden value; code then compares the two                                      |
-| 4. Judge a failure            | [tester/triage.py](tester/triage.py#L20)             | Gemini 3.5 Flash | The rules, the failed check (expected vs actual) and the shop's code         | Who is wrong (code, test or unsure), the exact line, and a suggested fix; code checks the line exists |
-| 5. Repair a wrong test        | [tester/repair.py](tester/repair.py#L22)             | Gemini 3.5 Flash | The rules, the wrong test, what the shop returned, and the judge's reasoning | A corrected test, or "keep" if it thinks the test was right; code re-checks and reruns it             |
-| Old v1 (not used now)         | [tester/v1_codegen.py](tester/v1_codegen.py#L16)     | Gemini 3.5 Flash | The rules                                                                    | A whole pytest file; replaced by the form (see "How the idea changed")                                |
+| 2. Write the tests            | [tester/generator.py](tester/generator.py#L14)       | Gemini 3.5 Flash | The rules only, never the code                                               | Tests as filled-in forms. Every check names its rule and why                                          |
+| 3. Blind second review        | [tester/review.py](tester/review.py#L23)             | Gemini 3 Flash   | The rules, and each test with its expected values hidden                     | Its own answer for each hidden value. Code then compares the two                                      |
+| 4. Judge a failure            | [tester/triage.py](tester/triage.py#L20)             | Gemini 3.5 Flash | The rules, the failed check (expected vs actual) and the shop's code         | Who is wrong (code, test or unsure), the exact line, and a suggested fix. Code checks the line exists |
+| 5. Repair a wrong test        | [tester/repair.py](tester/repair.py#L22)             | Gemini 3.5 Flash | The rules, the wrong test, what the shop returned, and the judge's reasoning | A corrected test, or "keep" if it thinks the test was right. Code re-checks and reruns it             |
+| Old v1 (not used now)         | [tester/v1_codegen.py](tester/v1_codegen.py#L16)     | Gemini 3.5 Flash | The rules                                                                    | A whole pytest file. Replaced by the form (see "How the idea changed")                                |
 
 Every prompt actually sent, and the answer, is also saved locally to `runs/llm_calls.jsonl`. That file is not in the repo.
 
@@ -111,9 +108,9 @@ Every prompt actually sent, and the answer, is also saved locally to `runs/llm_c
 
 - **Other option:** let the AI write test code (version 1 did this).
 - **Why:**
-  - our code can check a form before running it;
-  - every expected value must name a rule;
-  - only our code runs anything.
+  - our code can check a form before running it
+  - every expected value must name a rule
+  - only our code runs anything
 - **Trade-off:** tests can only do what the form allows (API calls and value checks). A new kind of test needs a new form and a runner for it.
 
 **2. An AI judge decides bug vs. wrong test** (`tester/runner.py`, `tester/triage.py`)
@@ -121,20 +118,20 @@ Every prompt actually sent, and the answer, is also saved locally to `runs/llm_c
 - **Other option:** run every test on a known bug-free copy, so code alone decides (built first, then removed).
 - **Why:** a bug-free copy rarely exists in real life, and never for a new feature.
 - **Trade-off:** the verdict is now an AI judgement, not a fact. To limit that:
-  - code still decides every pass/fail;
-  - a BUG needs the blamed line to really exist;
-  - a BAD_TEST needs the AI's rewritten test to pass;
-  - everything else goes to a human.
+  - code still decides every pass/fail
+  - a BUG needs the blamed line to really exist
+  - a BAD_TEST needs the AI's rewritten test to pass
+  - everything else goes to a human
 
 ## Design point of view
 
 **AI suggests, code verifies, people decide what is uncertain. The tool never hides uncertainty.** You can see this in the screen and the report:
 
-- every verdict has its own label (UNSTABLE, NEEDS_REVIEW, ENV_ERROR) instead of a forced pass or fail;
-- a pass on a rerun is never shown as a pass;
-- AI fix suggestions are marked "advice only" with "location verified" or "not verified";
-- each AI step shows whether its answer was live or saved;
-- raw requests and responses are always one click away.
+- every verdict has its own label (UNSTABLE, NEEDS_REVIEW, ENV_ERROR) instead of a forced pass or fail
+- a pass on a rerun is never shown as a pass
+- AI fix suggestions are marked "advice only" with "location verified" or "not verified"
+- each AI step shows whether its answer was live or saved
+- raw requests and responses are always one click away
 
 "How the idea changed" below is the design iteration.
 
@@ -186,9 +183,9 @@ def test_discount():
 
 Free code can do anything, so it is hard to check and does not say which rule it tests. With the form:
 
-- our code can check a test before running it (does the rule exist? does the page exist? does it check anything?);
-- every expected value comes with a rule and a reason;
-- our code runs the test, not the AI's code.
+- our code can check a test before running it (does the rule exist? does the page exist? does it check anything?)
+- every expected value comes with a rule and a reason
+- our code runs the test, not the AI's code
 
 The form is defined in `tester/dsl.py`.
 
@@ -211,16 +208,16 @@ This itself is another limitation as the model is reviewing another Gemini model
 
 **4. Smaller changes**
 
-- Wrong tests used to be thrown away; now the AI fixes its own test.
+- Wrong tests used to be thrown away. Now the AI fixes its own test.
 - Human approval of tests is now optional: tests the reviewer flags are left out automatically.
 
 ## What I reused, changed and built
 
 |                    | What                                                                                                                                                                                                                                                                                                                                |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Reused as-is**   | FastAPI, Uvicorn, SQLite (the shop); httpx (sending requests); Pydantic (the test form); Streamlit + pandas (the screen); pytest; python-dotenv; Google's `google-genai` library with Gemini 3.5 Flash (writes tests, judges failures, repairs tests) and Gemini 3 Flash (reviewer); Ollama + Qwen 2.5 (tried as reviewer, dropped) |
+| **Reused as-is**   | FastAPI, Uvicorn, SQLite (the shop) · httpx (sending requests) · Pydantic (the test form) · Streamlit + pandas (the screen) · pytest · python-dotenv · Google's `google-genai` library with Gemini 3.5 Flash (writes tests, judges failures, repairs tests) and Gemini 3 Flash (reviewer) · Ollama + Qwen 2.5 (tried as reviewer, dropped) |
 | **Changed**        | Nothing was forked. The only borrowed idea is the standard practice of rerunning tests to spot flakiness.                                                                                                                                                                                                                           |
-| **Built by me**    | The shop and its 3 planted bugs; the test form and linter; the test runner; the blind review method; the AI judge and its line check; the self-repair loop; the 3× reruns; the report, screen and terminal tool; all prompts                                                                                                        |
+| **Built by me**    | The shop and its 3 planted bugs · the test form and linter · the test runner · the blind review method · the AI judge and its line check · the self-repair loop · the 3× reruns · the report, screen and terminal tool · all prompts                                                                                                        |
 | **AI coding tool** | Claude Code helped write the code. I made the product decisions and corrected it along the way (see "How the idea changed").                                                                                                                                                                                                        |
 
 **Most valuable contribution:** "ask an AI to write tests from the requirements" is the obvious idea, and on its own it isn't accurate enough. My contribution is two simple additions that made a measurable difference:
@@ -256,7 +253,7 @@ Try the random-failure switch: `SHOP_FLAKY=0.3 python -m tester run`.
 | Label               | What                                                                                                                                                                        |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Real**            | Every test run (real requests to a real shop on your machine) and every live AI call                                                                                        |
-| **Simulated**       | The 3 bugs (planted on purpose); the 3 broken tests in `generated/broken/` (planted AI mistakes); random checkout failures (`SHOP_FLAKY`, `shop/chaos.py`)                  |
+| **Simulated**       | The 3 bugs (planted on purpose) · the 3 broken tests in `generated/broken/` (planted AI mistakes) · random checkout failures (`SHOP_FLAKY`, `shop/chaos.py`)                  |
 | **Pre-generated**   | `generated/v2/suite.json` (tests written by Gemini earlier). The example requirements reuse AI answers saved earlier, to save free API quota. Anything typed is always live |
 | **Recorded**        | Everything in `evidence/`: saved runs with raw results, reports and server logs                                                                                             |
 | **Screen-recorded** | Nothing                                                                                                                                                                     |
@@ -271,7 +268,7 @@ Try the random-failure switch: `SHOP_FLAKY=0.3 python -m tester run`.
 
 ## Unfinished parts
 
-- **The AI judge can't look for files itself.** It is given 3 fixed files; a real codebase needs it to search for the right ones. This is where there's potential for another agent to search for the relevant files before sending them for evaluation.
+- **The AI judge can't look for files itself.** It is given 3 fixed files, but a real codebase needs it to search for the right ones. This is where there's potential for another agent to search for the relevant files before sending them for evaluation.
 - **The test form only covers API value checks.** Speed or website tests would need a new form and a runner for it.
 - **UNSTABLE doesn't say which run was different.** All attempts are saved, but you have to compare them yourself.
 
